@@ -282,6 +282,37 @@
              border-top-color:white; border-radius:50%; animation:spin .6s linear infinite; display:inline-block; }
   @keyframes spin { to { transform:rotate(360deg); } }
 
+  /* ── CURSO SELECTOR ── */
+  .curso-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; margin-top:20px; }
+  .curso-card { background:var(--surface); border:1px solid var(--border); border-radius:16px;
+                padding:20px; cursor:pointer; transition:all .18s; position:relative; overflow:hidden; }
+  .curso-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:0 8px 24px rgba(88,166,255,.12); }
+  .curso-card.active-curso { border-color:var(--accent); background:rgba(88,166,255,.06); }
+  .curso-card-name { font-size:18px; font-weight:800; margin-bottom:4px; }
+  .curso-card-meta { font-size:11px; color:var(--muted); line-height:1.7; }
+  .curso-card-badge { position:absolute; top:12px; right:12px; font-size:10px; font-weight:800;
+                      padding:2px 8px; border-radius:20px; background:rgba(88,166,255,.15); color:var(--accent); }
+  .curso-add-card { border:2px dashed var(--border2); background:transparent; display:flex;
+                    flex-direction:column; align-items:center; justify-content:center; gap:8px;
+                    min-height:110px; color:var(--dim); font-size:13px; font-weight:700; }
+  .curso-add-card:hover { border-color:var(--accent); color:var(--accent); background:rgba(88,166,255,.04); }
+  .curso-add-icon { font-size:28px; }
+
+  /* ── SHEETS SYNC ── */
+  .sync-bar { display:flex; align-items:center; gap:10px; padding:8px 14px;
+              background:rgba(26,127,55,.08); border:1px solid rgba(26,127,55,.25);
+              border-radius:10px; font-size:11px; color:var(--green); font-weight:700;
+              margin-bottom:12px; flex-wrap:wrap; }
+  .sync-bar.error { background:rgba(207,34,46,.08); border-color:rgba(207,34,46,.25); color:var(--red); }
+  .sync-bar.syncing { background:rgba(88,166,255,.08); border-color:rgba(88,166,255,.25); color:var(--accent); }
+  .sync-dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex-shrink:0; }
+  .sync-dot.pulse { animation:pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .sheets-cfg { background:var(--surface2); border:1px solid var(--border2); border-radius:10px;
+                padding:12px 16px; margin-bottom:14px; font-size:12px; }
+  .sheets-cfg input { width:100%; background:var(--surface); border:1px solid var(--border2);
+                      border-radius:6px; padding:6px 10px; font-size:12px; color:var(--text);
+                      font-family:var(--mono); margin-top:4px; }
   /* ── MISC ── */
   .section-title { font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
                    color:var(--dim); margin-bottom:10px; }
@@ -326,17 +357,81 @@
       <span class="topbar-icon">🏫</span>
       <div>
         <div class="topbar-title">AsignadorPuestos</div>
-        <div class="topbar-sub">8vo Básico · Gestión pedagógica</div>
+        <div class="topbar-sub" id="topbar-curso">— · Gestión pedagógica</div>
       </div>
     </div>
     <div class="topbar-actions" id="topbar-actions">
+      <button class="btn btn-ghost btn-sm" id="btn-cursos" onclick="showCursos()" title="Mis cursos" style="font-weight:800;">📚 Mis Cursos</button>
       <button class="btn btn-ghost btn-sm" id="btn-theme" onclick="toggleTheme()" title="Cambiar tema" style="font-size:16px;padding:5px 10px;">🌙</button>
       <!-- filled by JS -->
     </div>
   </div>
 
+  <!-- SCREEN 0: CURSO SELECTOR -->
+  <div class="screen active" id="screen-cursos">
+    <div style="max-width:900px;margin:0 auto;">
+      <div class="flex-between" style="margin-bottom:8px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 style="font-size:26px;font-weight:800;letter-spacing:-.02em;">Mis Cursos</h2>
+          <p style="font-size:12px;color:var(--muted);margin-top:3px;">Selecciona un curso para ver y editar su distribución de asientos</p>
+        </div>
+        <div class="flex-center" style="gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="importCursoJSON()">📂 Importar JSON</button>
+          <input type="file" id="import-curso-file" accept=".json" style="display:none" onchange="importCursoFromFile(event)">
+          <button class="btn btn-ghost btn-sm" id="btn-sheets-cfg" onclick="toggleSheetsCfg()" title="Configurar Google Sheets">🔗 Google Sheets</button>
+        </div>
+      </div>
+      <div id="sheets-cfg-panel" style="display:none;" class="sheets-cfg">
+        <div style="font-size:11px;font-weight:800;color:var(--accent);letter-spacing:.08em;margin-bottom:8px;">🔗 GOOGLE SHEETS — SINCRONIZACIÓN</div>
+
+        <!-- Step 1: not connected -->
+        <div id="oauth-step-connect">
+          <div style="color:var(--muted);font-size:11px;margin-bottom:12px;line-height:1.7;">
+            Conecta tu cuenta Google para sincronizar los cursos automáticamente con un Spreadsheet en tu Drive.<br>
+            <a href="#" onclick="showSheetsGuide();return false;" style="color:var(--accent);">Ver guía de configuración →</a>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Google Client ID <span style="font-weight:400;">(desde Google Cloud Console)</span></label>
+            <input type="text" id="gapi-client-id" placeholder="XXXXXXXXXXXX-xxxxxxxx.apps.googleusercontent.com"
+                   style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text);font-family:var(--mono);">
+          </div>
+          <div style="margin-bottom:10px;">
+            <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">ID del Spreadsheet <span style="font-weight:400;">(de la URL de tu Google Sheet)</span></label>
+            <input type="text" id="gapi-spreadsheet-id" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+                   style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text);font-family:var(--mono);">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="googleSignIn()" id="btn-google-signin" style="gap:8px;">
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:16px;height:16px;"> Conectar con Google
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="saveSheetsConfig()">💾 Guardar configuración</button>
+          </div>
+        </div>
+
+        <!-- Step 2: connected -->
+        <div id="oauth-step-connected" style="display:none;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:rgba(26,127,55,.1);border:1px solid rgba(26,127,55,.3);border-radius:8px;">
+            <img id="google-user-avatar" src="" style="width:32px;height:32px;border-radius:50%;display:none;">
+            <div>
+              <div style="font-size:12px;font-weight:800;color:var(--green);">✅ Conectado con Google</div>
+              <div id="google-user-email" style="font-size:11px;color:var(--muted);"></div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="googleSignOut()" style="margin-left:auto;color:var(--red);font-size:11px;">Desconectar</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="syncAllCursos()" id="btn-sync-all">☁️ Sincronizar todos los cursos</button>
+            <button class="btn btn-ghost btn-sm" onclick="openSpreadsheet()" id="btn-open-sheet">📊 Abrir Spreadsheet</button>
+          </div>
+        </div>
+
+        <div id="sheets-status" style="font-size:11px;margin-top:8px;color:var(--muted);"></div>
+      </div>
+      <div class="curso-grid" id="curso-grid"></div>
+    </div>
+  </div>
+
   <!-- SCREEN 1: ROSTER -->
-  <div class="screen active" id="screen-roster">
+  <div class="screen" id="screen-roster">
     <div class="steps" id="steps-roster">
       <div class="step-item active"><span class="step-num">1</span>Lista de curso</div>
       <div class="step-item" style="margin-left:4px">→</div>
@@ -352,9 +447,10 @@
       </div>
       <div class="flex-center">
         <button class="btn btn-ghost btn-sm" onclick="importDemo()">📥 Cargar demo</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportJSON()">💾 Exportar JSON</button>
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').click()">📂 Importar JSON</button>
-        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(event)">
+        <button class="btn btn-ghost btn-sm" onclick="exportCurso()">💾 Exportar curso</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-form-file').click()" title="Importar respuestas JSON del formulario">📋 Importar JSON</button>
+        <button class="btn btn-ghost btn-sm" onclick="importFormFromSheets(CURRENT_CURSO_ID)" title="Importar respuestas desde Google Sheets (requiere conexión)">☁️ Importar Forms</button>
+        <input type="file" id="import-form-file" accept=".json" style="display:none" onchange="importFormJSON(event)">
         <button class="btn btn-primary" onclick="goToPrefs()">Preferencias →</button>
       </div>
     </div>
@@ -378,6 +474,7 @@
               <th>Diagnóstico NEE</th>
               <th>Rendimiento</th>
               <th>Participación</th>
+              <th>Promedio</th>
               <th>Tutor</th>
               <th>Conducta</th>
               <th title="Problema visual">👁</th>
@@ -475,6 +572,7 @@
 
     <!-- warnings -->
     <div id="warnings-bar" style="display:none" class="warn-bar"></div>
+    <div id="sync-bar" style="display:none" class="sync-bar"><span class="sync-dot"></span><span id="sync-msg"></span></div>
 
     <!-- stats + controls -->
     <div class="flex-between" style="margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -514,6 +612,62 @@
         <span class="cmd-bar-label">⚡ IA</span>
         <textarea id="cmd-input" rows="1" placeholder='Ej: "Mueve participación baja a primeras filas" · "Separa disruptivos" · "Pon tutores junto a alumnos NEE"'></textarea>
         <button class="btn btn-primary btn-sm" id="btn-cmd" onclick="runCommand()" style="white-space:nowrap;">Aplicar →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHEETS GUIDE MODAL -->
+  <div class="modal-overlay" id="sheets-guide-modal" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto;">
+      <h3>🔗 Guía de configuración — Google Sheets + OAuth</h3>
+      <p>Sigue estos pasos <strong>una sola vez</strong>. Tiempo estimado: 15 minutos.</p>
+
+      <div style="margin-top:14px;">
+        <div style="font-size:11px;font-weight:800;color:var(--accent);letter-spacing:.07em;margin-bottom:6px;">PASO 1 — CREAR EL SPREADSHEET</div>
+        <ol style="font-size:12px;color:var(--muted);line-height:2;margin-left:16px;">
+          <li>Ve a <a href="https://sheets.google.com" target="_blank" style="color:var(--accent);">sheets.google.com</a> y crea un nuevo spreadsheet</li>
+          <li>Nómbralo <strong>AsignadorPuestos</strong></li>
+          <li>Copia el <strong>ID del Spreadsheet</strong> desde la URL:<br>
+              <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:11px;">https://docs.google.com/spreadsheets/d/<strong>[ESTE ES EL ID]</strong>/edit</code></li>
+          <li>Pega ese ID en el campo correspondiente del panel de configuración</li>
+        </ol>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div style="font-size:11px;font-weight:800;color:var(--accent);letter-spacing:.07em;margin-bottom:6px;">PASO 2 — CREAR PROYECTO EN GOOGLE CLOUD</div>
+        <ol style="font-size:12px;color:var(--muted);line-height:2;margin-left:16px;">
+          <li>Ve a <a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent);">console.cloud.google.com</a></li>
+          <li>Crea un proyecto nuevo → nómbralo <strong>AsignadorPuestos</strong></li>
+          <li>Menú → <strong>APIs y servicios → Biblioteca</strong></li>
+          <li>Busca y activa: <strong>Google Sheets API</strong></li>
+          <li>Menú → <strong>APIs y servicios → Credenciales</strong></li>
+          <li>Clic en <strong>Crear credenciales → ID de cliente OAuth</strong></li>
+          <li>Tipo de aplicación: <strong>Aplicación web</strong></li>
+          <li>Nombre: <strong>AsignadorPuestos</strong></li>
+          <li>En <em>"Orígenes autorizados de JavaScript"</em> agrega la URL donde está alojada la app<br>
+              (ej: <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:11px;">https://tuusuario.github.io</code>)</li>
+          <li>Clic en <strong>Crear</strong> → copia el <strong>Client ID</strong> que aparece</li>
+          <li>Pega ese Client ID en el campo correspondiente del panel de configuración</li>
+        </ol>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div style="font-size:11px;font-weight:800;color:var(--accent);letter-spacing:.07em;margin-bottom:6px;">PASO 3 — CONECTAR LA APP</div>
+        <ol style="font-size:12px;color:var(--muted);line-height:2;margin-left:16px;">
+          <li>En el panel de Google Sheets de la app, pega el <strong>Client ID</strong> y el <strong>ID del Spreadsheet</strong></li>
+          <li>Haz clic en <strong>Guardar configuración</strong></li>
+          <li>Haz clic en <strong>Conectar con Google</strong> → se abrirá el popup de autorización de Google</li>
+          <li>Autoriza los permisos solicitados (leer y escribir en Sheets)</li>
+          <li>¡Listo! Desde ahora los cambios se sincronizan automáticamente</li>
+        </ol>
+      </div>
+
+      <div style="margin-top:14px;padding:10px 12px;background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.25);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.6;">
+        💡 <strong>Para GitHub Pages:</strong> sube la app a un repositorio público en GitHub, activa Pages en Settings → Pages, y usa esa URL como origen autorizado en Google Cloud.
+      </div>
+
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sheets-guide-modal').style.display='none'">Cerrar</button>
       </div>
     </div>
   </div>
@@ -626,48 +780,153 @@ let STATE = {
 let _idCounter = 1;
 
 // ═══════════════════════════════════════════════════════════════════
-//  PERSISTENCE (localStorage as JSON DB)
+//  MULTI-CURSO STATE & PERSISTENCE
 // ═══════════════════════════════════════════════════════════════════
+let CURRENT_CURSO_ID = null;
+
+function getCursos() {
+  try { return JSON.parse(localStorage.getItem("cursos_index")||"[]"); } catch { return []; }
+}
+function saveCursos(list) {
+  localStorage.setItem("cursos_index", JSON.stringify(list));
+}
+function getCursoData(id) {
+  try { return JSON.parse(localStorage.getItem("curso_"+id)||"null"); } catch { return null; }
+}
+function saveCursoData(id, data) {
+  localStorage.setItem("curso_"+id, JSON.stringify(data));
+  // Update index metadata
+  const list = getCursos();
+  const idx = list.findIndex(c=>c.id===id);
+  if (idx>=0) { list[idx].updatedAt=new Date().toISOString(); list[idx].alumnosCount=data.students.length; saveCursos(list); }
+}
+
 function saveState() {
-  localStorage.setItem("seating_students", JSON.stringify(STATE.students));
-  localStorage.setItem("seating_grid",     JSON.stringify(STATE.grid));
-  localStorage.setItem("seating_locked",   JSON.stringify(STATE.locked));
+  if (!CURRENT_CURSO_ID) return;
+  const data = { students:STATE.students, grid:STATE.grid, locked:STATE.locked, updatedAt:new Date().toISOString() };
+  saveCursoData(CURRENT_CURSO_ID, data);
+  queueSheetsSync(); // auto-sync to Google Sheets (debounced)
 }
+
+function loadCurso(id) {
+  CURRENT_CURSO_ID = id;
+  const data = getCursoData(id);
+  const cursos = getCursos();
+  const curso = cursos.find(c=>c.id===id);
+  if (data) {
+    STATE.students = data.students || [];
+    STATE.grid     = data.grid     || buildEmptyGrid();
+    STATE.locked   = data.locked   || [];
+    if (STATE.students.length) _idCounter = Math.max(...STATE.students.map(x=>x.id))+1;
+    else initDefaultStudents();
+    if (!STATE.grid.length) STATE.grid = buildEmptyGrid();
+  } else {
+    initDefaultStudents();
+    STATE.grid = buildEmptyGrid();
+    STATE.locked = [];
+  }
+  // Update topbar
+  const sub = document.getElementById("topbar-curso");
+  if (sub && curso) sub.textContent = `${curso.nombre} · ${curso.nivel||""}`;
+}
+
 function loadState() {
-  try {
-    const s = localStorage.getItem("seating_students");
-    const g = localStorage.getItem("seating_grid");
-    const l = localStorage.getItem("seating_locked");
-    if (s) { STATE.students = JSON.parse(s); _idCounter = Math.max(...STATE.students.map(x=>x.id))+1; }
-    if (g) STATE.grid    = JSON.parse(g);
-    if (l) STATE.locked  = JSON.parse(l);
-    if (!STATE.students.length) initDefaultStudents();
-    if (!STATE.grid.length)     STATE.grid = buildEmptyGrid();
-  } catch(e) { initDefaultStudents(); STATE.grid = buildEmptyGrid(); }
+  // Legacy migration: if old keys exist, migrate to first course
+  const oldStudents = localStorage.getItem("seating_students");
+  if (oldStudents && !getCursos().length) {
+    const id = "curso_" + Date.now();
+    const list = [{ id, nombre:"Mi Curso", nivel:"8vo Básico", alumnosCount:0, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }];
+    saveCursos(list);
+    const data = {
+      students: JSON.parse(oldStudents||"[]"),
+      grid:     JSON.parse(localStorage.getItem("seating_grid")||"[]"),
+      locked:   JSON.parse(localStorage.getItem("seating_locked")||"[]"),
+    };
+    saveCursoData(id, data);
+    localStorage.removeItem("seating_students");
+    localStorage.removeItem("seating_grid");
+    localStorage.removeItem("seating_locked");
+  }
 }
-function exportJSON() {
-  const data = { students: STATE.students, grid: STATE.grid, locked: STATE.locked, exportedAt: new Date().toISOString() };
+
+function createCurso(nombre, nivel) {
+  const id = "cid_" + Date.now();
+  const list = getCursos();
+  list.push({ id, nombre, nivel, alumnosCount:0, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() });
+  saveCursos(list);
+  return id;
+}
+function deleteCurso(id) {
+  const list = getCursos().filter(c=>c.id!==id);
+  saveCursos(list);
+  localStorage.removeItem("curso_"+id);
+  if (CURRENT_CURSO_ID===id) { CURRENT_CURSO_ID=null; }
+}
+function renameCurso(id, nombre, nivel) {
+  const list = getCursos();
+  const c = list.find(x=>x.id===id);
+  if (c) { c.nombre=nombre; c.nivel=nivel; saveCursos(list); }
+}
+function exportCurso() {
+  const cursos = getCursos();
+  const curso = cursos.find(c=>c.id===CURRENT_CURSO_ID)||{nombre:"curso"};
+  const data = { students:STATE.students, grid:STATE.grid, locked:STATE.locked,
+                 cursoNombre:curso.nombre, cursoNivel:curso.nivel, exportedAt:new Date().toISOString() };
   const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const ts = new Date().toISOString().slice(0,16).replace("T","-").replace(/:/g,"");
   const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download="asignacion-puestos.json"; a.click();
-  toast("💾 JSON exportado","green");
+  a.download=`${curso.nombre.replace(/\s+/g,"-")}-${ts}.json`; a.click();
+  toast("💾 Curso exportado","green");
 }
-function importJSON(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+function importCursoJSON() { document.getElementById("import-curso-file").click(); }
+function importCursoFromFile(event) {
+  const file = event.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      if (data.students) { STATE.students=data.students; _idCounter=Math.max(...data.students.map(x=>x.id))+1; }
-      if (data.grid)    STATE.grid=data.grid;
-      if (data.locked)  STATE.locked=data.locked;
-      saveState(); renderRoster(); renderPrefs();
-      if (STATE.grid.some(r=>r.some(c=>c!==null))) renderGrid();
-      toast("📂 JSON importado correctamente","green");
+      const nombre = data.cursoNombre || file.name.replace(".json","");
+      const nivel  = data.cursoNivel  || "";
+      const id = createCurso(nombre, nivel);
+      saveCursoData(id, data);
+      renderCursos();
+      toast("📂 Curso importado: "+nombre,"green");
     } catch { toast("Error al importar el archivo","red"); }
   };
   reader.readAsText(file);
+  event.target.value="";
+}
+function importFormJSON(event) {
+  // Import student form responses (generated by formulario.html)
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const responses = JSON.parse(e.target.result);
+      // responses = array of { nombre, apellido, genero, promedio, prefereCon, evitaCon }
+      let added=0, updated=0;
+      responses.forEach(r => {
+        const fullName = (r.nombre||"")+" "+(r.apellido||"");
+        const existing = STATE.students.find(s=>s.name.trim().toLowerCase()===fullName.trim().toLowerCase());
+        if (existing) {
+          if (r.genero)   existing.gender  = r.genero;
+          if (r.promedio) existing.promedio = parseFloat(r.promedio);
+          updated++;
+        } else {
+          STATE.students.push(mkStudent({
+            name: fullName.trim(),
+            gender: r.genero||"M",
+            promedio: r.promedio ? parseFloat(r.promedio) : null,
+          }));
+          added++;
+        }
+      });
+      saveState(); renderRoster();
+      toast(`📋 Formulario importado: ${added} nuevos, ${updated} actualizados`,"green");
+    } catch(err) { toast("Error al importar formulario","red"); }
+  };
+  reader.readAsText(file);
+  event.target.value="";
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -675,7 +934,7 @@ function importJSON(event) {
 // ═══════════════════════════════════════════════════════════════════
 function mkStudent(overrides={}) {
   return { id:_idCounter++, name:"", gender:"M", diagnosis:"—", performance:"Medio",
-           participation:"Media", isTutor:false, conflict:"—",
+           participation:"Media", promedio:null, isTutor:false, conflict:"—",
            visual:false, hearing:false, frontRow:false,
            preferredWith:[], avoidWith:[], ...overrides };
 }
@@ -891,8 +1150,8 @@ function buildPrompt() {
   const students = STATE.students.map(s=>({
     id:s.id, name:s.name||`Alumno${s.id}`,
     gender:s.gender, diagnosis:s.diagnosis, performance:s.performance,
-    participation:s.participation, isTutor:s.isTutor,
-    conflict:s.conflict, visual:s.visual, hearing:s.hearing,
+    participation:s.participation, promedio:s.promedio,
+    isTutor:s.isTutor, conflict:s.conflict, visual:s.visual, hearing:s.hearing,
     frontRow:s.frontRow, avoidWith:s.avoidWith, preferredWith:s.preferredWith
   }));
   return `Distribuye ${students.length} alumnos en una sala de clases.
@@ -1037,6 +1296,11 @@ function renderRoster() {
           ${PARTS.map(p=>`<option value="${p}" ${s.participation===p?"selected":""}>${p}</option>`).join("")}
         </select>
       </td>
+      <td>
+        <input type="number" min="1" max="7" step="0.1" style="width:54px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 6px;color:var(--text);font-size:12px;text-align:center;"
+          placeholder="—" value="${s.promedio!=null?s.promedio:''}"
+          onchange="updateStudent(${s.id},'promedio',this.value?parseFloat(this.value):null)">
+      </td>
       <td style="text-align:center">
         <button onclick="updateStudent(${s.id},'isTutor',!${s.isTutor}); renderRoster();"
           class="btn btn-sm" style="background:${s.isTutor?"rgba(63,185,80,.15)":"transparent"};
@@ -1068,6 +1332,7 @@ function renderRosterStats() {
     {icon:"⚡",num:s.filter(x=>x.conflict==="Disruptivo").length,label:"disruptivos"},
     {icon:"★",num:s.filter(x=>x.isTutor).length,label:"tutores"},
     {icon:"📈",num:s.filter(x=>x.performance==="Alto").length,label:"alto rend."},
+    {icon:"📊",num:(()=>{const ps=s.filter(x=>x.promedio!=null);return ps.length?`${(ps.reduce((a,b)=>a+b.promedio,0)/ps.length).toFixed(1)}`:"-";})(),label:"promedio curso"},
   ];
   document.getElementById("roster-stats").innerHTML = stats.map(s=>`
     <div class="stat-card">
@@ -1500,7 +1765,7 @@ function renderDetailCard() {
       <button onclick="selectSeat(${s.id})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;">✕</button>
     </div>
     <div class="detail-grid">
-      ${[["Nº Lista",s.id,"var(--accent)"],["Rendimiento",s.performance,PERF_COLOR[s.performance]],["Participación",s.participation,PART_COLOR[s.participation]],["Conducta",s.conflict,CONF_CLR[s.conflict]],["Tutor",s.isTutor?"Sí":"No",s.isTutor?"var(--green)":"var(--dim)"],["Género",s.gender,GENDER_CLR[s.gender]]].map(([k,v,c])=>`
+      ${[["Nº Lista",s.id,"var(--accent)"],["Rendimiento",s.performance,PERF_COLOR[s.performance]],["Promedio",s.promedio!=null?s.promedio.toFixed(1)+"  ⬥":"—","var(--yellow)"],["Participación",s.participation,PART_COLOR[s.participation]],["Conducta",s.conflict,CONF_CLR[s.conflict]],["Tutor",s.isTutor?"Sí":"No",s.isTutor?"var(--green)":"var(--dim)"]].map(([k,v,c])=>`
         <div class="detail-item"><div class="detail-key">${k}</div><div class="detail-val" style="color:${c}">${v}</div></div>`).join("")}
     </div>
     ${s.preferredWith.length?`<div class="pref-section"><div class="pref-title" style="color:var(--green);">✅ Prefiere con</div><div class="pref-names">${s.preferredWith.map(id=>getById(id)?.name||`#${id}`).join(", ")}</div></div>`:""}
@@ -1687,6 +1952,93 @@ function showScreen(name) {
   document.getElementById("screen-"+name).classList.add("active");
   if (name==="prefs") renderPrefs();
   if (name==="map") renderGrid();
+  if (name==="cursos") renderCursos();
+}
+function showCursos() { showScreen("cursos"); }
+
+function renderCursos() {
+  const grid = document.getElementById("curso-grid");
+  if (!grid) return;
+  const list = getCursos();
+  grid.innerHTML = "";
+
+  list.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "curso-card" + (c.id===CURRENT_CURSO_ID?" active-curso":"");
+    const updated = c.updatedAt ? new Date(c.updatedAt).toLocaleDateString("es-CL") : "—";
+    card.innerHTML = `
+      <div class="curso-card-badge">${c.alumnosCount||0} alumnos</div>
+      <div class="curso-card-name">${c.nombre}</div>
+      <div class="curso-card-meta">
+        ${c.nivel||"Sin nivel"}<br>
+        Modificado: ${updated}
+      </div>
+      <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="openCurso('${c.id}')">Abrir →</button>
+        <button class="btn btn-ghost btn-sm" onclick="editCursoName('${c.id}','${c.nombre.replace(/'/g,"\'")}','${(c.nivel||"").replace(/'/g,"\'")}')">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportarCursoById('${c.id}')" title="Exportar">💾</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="confirmDeleteCurso('${c.id}','${c.nombre.replace(/'/g,"\'")}')">🗑</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  // Add new card
+  const addCard = document.createElement("div");
+  addCard.className = "curso-card curso-add-card";
+  addCard.onclick = newCurso;
+  addCard.innerHTML = `<div class="curso-add-icon">➕</div><div>Nuevo curso</div>`;
+  grid.appendChild(addCard);
+}
+
+async function openCurso(id) {
+  if (CURRENT_CURSO_ID && CURRENT_CURSO_ID!==id) saveState();
+  loadCurso(id); // load from localStorage first (instant)
+  STATE.selectedId=null;
+  showScreen("roster");
+  renderRoster();
+  // Then try to refresh from Sheets in background
+  if (SHEETS_URL) {
+    const refreshed = await loadCursoFromSheets(id);
+    if (refreshed) { renderRoster(); if(STATE.grid.some(c=>c.some(v=>v!==null))) renderGrid(); }
+  }
+  toast("📂 Curso cargado","accent");
+}
+
+function newCurso() {
+  const nombre = prompt("Nombre del curso (ej: 8vo A):");
+  if (!nombre||!nombre.trim()) return;
+  const nivel  = prompt("Nivel o asignatura (ej: 8vo Básico):")||"";
+  const id = createCurso(nombre.trim(), nivel.trim());
+  openCurso(id);
+}
+
+function editCursoName(id, nombre, nivel) {
+  const newNombre = prompt("Nombre del curso:", nombre);
+  if (!newNombre||!newNombre.trim()) return;
+  const newNivel = prompt("Nivel o asignatura:", nivel)||"";
+  renameCurso(id, newNombre.trim(), newNivel.trim());
+  if (id===CURRENT_CURSO_ID) {
+    const sub=document.getElementById("topbar-curso");
+    if(sub) sub.textContent=newNombre.trim()+" · "+newNivel.trim();
+  }
+  renderCursos();
+}
+
+function exportarCursoById(id) {
+  const cursos=getCursos(); const c=cursos.find(x=>x.id===id)||{nombre:"curso"};
+  const data=getCursoData(id)||{};
+  const blob=new Blob([JSON.stringify({...data,cursoNombre:c.nombre,cursoNivel:c.nivel,exportedAt:new Date().toISOString()},null,2)],{type:"application/json"});
+  const ts=new Date().toISOString().slice(0,16).replace("T","-").replace(/:/g,"");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`${c.nombre.replace(/\s+/g,"-")}-${ts}.json`; a.click();
+}
+
+function confirmDeleteCurso(id, nombre) {
+  if (!confirm(`¿Eliminar el curso "${nombre}"? Esta acción no se puede deshacer.`)) return;
+  deleteCurso(id);
+  if (CURRENT_CURSO_ID===id) { CURRENT_CURSO_ID=null; STATE.students=[]; STATE.grid=buildEmptyGrid(); }
+  renderCursos();
+  toast("🗑 Curso eliminado","red");
 }
 function goToPrefs() {
   saveState(); showScreen("prefs");
@@ -1772,7 +2124,25 @@ function closeModal() { document.getElementById("modal").style.display="none"; }
 document.addEventListener("DOMContentLoaded",()=>{
   loadTheme();
   loadState();
-  renderRoster();
+  // Load GIS library for OAuth
+  const _gis=document.createElement('script'); _gis.src='https://accounts.google.com/gsi/client'; _gis.async=true; document.head.appendChild(_gis);
+  // Restore Sheets config + session
+  setTimeout(loadSheetsConfig, 300);
+  const _cursoList = getCursos();
+  if (_cursoList.length === 0) {
+    // First time: create default course
+    const _defId = createCurso("Mi Primer Curso", "8vo Básico");
+    initDefaultStudents();
+    STATE.grid = buildEmptyGrid();
+    STATE.locked = [];
+    CURRENT_CURSO_ID = _defId;
+    saveState();
+    showScreen("cursos");
+    renderCursos();
+  } else {
+    showScreen("cursos");
+    renderCursos();
+  }
   // if grid has data, show map button in topbar
   const hasMapa=STATE.grid.some(r=>r.some(c=>c!==null));
   document.getElementById("topbar-actions").innerHTML=`
@@ -2027,6 +2397,395 @@ function applyZoom() {
   }
   const lbl = document.getElementById("zoom-label");
   if (lbl) lbl.textContent = pct + "%";
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  GOOGLE SHEETS SYNC — OAuth 2.0 via Google Identity Services
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Config state ─────────────────────────────────────────────────
+let GAPI_CLIENT_ID    = localStorage.getItem("gapi_client_id")||"";
+let GAPI_SPREADSHEET  = localStorage.getItem("gapi_spreadsheet")||"";
+let GAPI_TOKEN        = null;   // access token from OAuth
+let GAPI_USER         = null;   // { name, email, picture }
+let _syncTimer        = null;
+let _syncPending      = false;
+
+const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+
+// ── Save/load config ──────────────────────────────────────────────
+function saveSheetsConfig() {
+  const cid = document.getElementById("gapi-client-id")?.value.trim()||"";
+  const sid = document.getElementById("gapi-spreadsheet-id")?.value.trim()||"";
+  GAPI_CLIENT_ID   = cid;
+  GAPI_SPREADSHEET = sid;
+  localStorage.setItem("gapi_client_id",   cid);
+  localStorage.setItem("gapi_spreadsheet", sid);
+  const st = document.getElementById("sheets-status");
+  if (st) { st.textContent = cid && sid ? "✅ Configuración guardada. Ahora haz clic en 'Conectar con Google'." : "⚠️ Completa ambos campos."; st.style.color = cid&&sid?"var(--green)":"var(--yellow)"; }
+}
+
+function loadSheetsConfig() {
+  GAPI_CLIENT_ID   = localStorage.getItem("gapi_client_id")||"";
+  GAPI_SPREADSHEET = localStorage.getItem("gapi_spreadsheet")||"";
+  const cid = document.getElementById("gapi-client-id");
+  const sid = document.getElementById("gapi-spreadsheet-id");
+  if (cid) cid.value = GAPI_CLIENT_ID;
+  if (sid) sid.value = GAPI_SPREADSHEET;
+  // Restore session token if still valid
+  const saved = localStorage.getItem("gapi_token_data");
+  if (saved) {
+    try {
+      const t = JSON.parse(saved);
+      if (t.expires > Date.now()) {
+        GAPI_TOKEN = t.token;
+        GAPI_USER  = t.user;
+        updateOAuthUI(true);
+      } else { localStorage.removeItem("gapi_token_data"); }
+    } catch {}
+  }
+}
+
+function toggleSheetsCfg() {
+  const p = document.getElementById("sheets-cfg-panel");
+  p.style.display = p.style.display==="none" ? "block" : "none";
+  if (p.style.display==="block") loadSheetsConfig();
+}
+
+// ── Google Identity Services OAuth ───────────────────────────────
+function googleSignIn() {
+  if (!GAPI_CLIENT_ID) {
+    saveSheetsConfig();
+    if (!GAPI_CLIENT_ID) { alert("Primero ingresa el Client ID de Google Cloud Console."); return; }
+  }
+  // Load GIS library dynamically
+  if (!window.google?.accounts?.oauth2) {
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.onload = () => _doGoogleSignIn();
+    document.head.appendChild(script);
+  } else { _doGoogleSignIn(); }
+}
+
+function _doGoogleSignIn() {
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GAPI_CLIENT_ID,
+    scope: SHEETS_SCOPE + " https://www.googleapis.com/auth/userinfo.profile email",
+    callback: async (response) => {
+      if (response.error) { showSyncBar("error","❌ Error OAuth: "+response.error); return; }
+      GAPI_TOKEN = response.access_token;
+      // Fetch user info
+      try {
+        const ui = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: "Bearer "+GAPI_TOKEN }
+        });
+        GAPI_USER = await ui.json();
+      } catch { GAPI_USER = {}; }
+      // Save token with expiry (55 min)
+      localStorage.setItem("gapi_token_data", JSON.stringify({
+        token: GAPI_TOKEN,
+        user:  GAPI_USER,
+        expires: Date.now() + 55*60*1000
+      }));
+      updateOAuthUI(true);
+      showSyncBar("ok","✅ Conectado con Google como "+GAPI_USER.email);
+      toast("✅ Google Sheets conectado","green");
+    }
+  });
+  client.requestAccessToken();
+}
+
+function googleSignOut() {
+  if (GAPI_TOKEN && window.google?.accounts?.oauth2) {
+    google.accounts.oauth2.revoke(GAPI_TOKEN);
+  }
+  GAPI_TOKEN = null; GAPI_USER = null;
+  localStorage.removeItem("gapi_token_data");
+  updateOAuthUI(false);
+  toast("Desconectado de Google","accent");
+}
+
+function updateOAuthUI(connected) {
+  const stepConnect    = document.getElementById("oauth-step-connect");
+  const stepConnected  = document.getElementById("oauth-step-connected");
+  const btnCursos      = document.getElementById("btn-sheets-cfg");
+  if (!stepConnect || !stepConnected) return;
+  stepConnect.style.display   = connected ? "none"  : "block";
+  stepConnected.style.display = connected ? "block" : "none";
+  if (connected && GAPI_USER) {
+    const el = document.getElementById("google-user-email");
+    if (el) el.textContent = GAPI_USER.email||"";
+    const av = document.getElementById("google-user-avatar");
+    if (av && GAPI_USER.picture) { av.src=GAPI_USER.picture; av.style.display="block"; }
+  }
+  if (btnCursos) {
+    btnCursos.textContent = connected ? "✅ Google Sheets" : "🔗 Google Sheets";
+    btnCursos.style.color = connected ? "var(--green)" : "";
+  }
+}
+
+function openSpreadsheet() {
+  if (GAPI_SPREADSHEET) window.open("https://docs.google.com/spreadsheets/d/"+GAPI_SPREADSHEET+"/edit","_blank");
+}
+
+// ── Sheets API helpers ────────────────────────────────────────────
+async function sheetsGet(range) {
+  if (!GAPI_TOKEN || !GAPI_SPREADSHEET) throw new Error("No autenticado o sin Spreadsheet configurado");
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${GAPI_SPREADSHEET}/values/${encodeURIComponent(range)}`;
+  const r = await fetch(url, { headers:{ Authorization:"Bearer "+GAPI_TOKEN } });
+  if (r.status===401) { GAPI_TOKEN=null; updateOAuthUI(false); throw new Error("Sesión expirada — vuelve a conectar con Google"); }
+  if (!r.ok) { const e=await r.json(); throw new Error(e.error?.message||r.statusText); }
+  return r.json();
+}
+
+async function sheetsUpdate(range, values) {
+  if (!GAPI_TOKEN || !GAPI_SPREADSHEET) throw new Error("No autenticado");
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${GAPI_SPREADSHEET}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  const r = await fetch(url, {
+    method:"PUT", headers:{ Authorization:"Bearer "+GAPI_TOKEN, "Content-Type":"application/json" },
+    body: JSON.stringify({ range, majorDimension:"ROWS", values })
+  });
+  if (r.status===401) { GAPI_TOKEN=null; updateOAuthUI(false); throw new Error("Sesión expirada"); }
+  if (!r.ok) { const e=await r.json(); throw new Error(e.error?.message||r.statusText); }
+  return r.json();
+}
+
+async function sheetsClear(range) {
+  if (!GAPI_TOKEN || !GAPI_SPREADSHEET) return;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${GAPI_SPREADSHEET}/values/${encodeURIComponent(range)}:clear`;
+  await fetch(url, { method:"POST", headers:{ Authorization:"Bearer "+GAPI_TOKEN } });
+}
+
+async function ensureSheet(sheetName) {
+  // Check if sheet exists, create if not
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${GAPI_SPREADSHEET}`;
+  const r = await fetch(url, { headers:{ Authorization:"Bearer "+GAPI_TOKEN } });
+  const meta = await r.json();
+  const exists = meta.sheets?.some(s=>s.properties.title===sheetName);
+  if (!exists) {
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GAPI_SPREADSHEET}:batchUpdate`, {
+      method:"POST", headers:{ Authorization:"Bearer "+GAPI_TOKEN, "Content-Type":"application/json" },
+      body: JSON.stringify({ requests:[{ addSheet:{ properties:{ title:sheetName } } }] })
+    });
+  }
+}
+
+// ── Sync bar ─────────────────────────────────────────────────────
+function showSyncBar(state, msg) {
+  const bar = document.getElementById("sync-bar");
+  const dot = bar?.querySelector(".sync-dot");
+  const msgEl = document.getElementById("sync-msg");
+  if (!bar) return;
+  bar.style.display = "flex";
+  bar.className = "sync-bar"+(state==="error"?" error":state==="syncing"?" syncing":"");
+  if (dot) dot.className = "sync-dot"+(state==="syncing"?" pulse":"");
+  if (msgEl) msgEl.textContent = msg;
+  if (state==="ok") setTimeout(()=>{ bar.style.display="none"; }, 3000);
+}
+function hideSyncBar() { const b=document.getElementById("sync-bar"); if(b) b.style.display="none"; }
+
+// ── Auto-save (debounced) ─────────────────────────────────────────
+function queueSheetsSync() {
+  if (!GAPI_TOKEN || !CURRENT_CURSO_ID) return;
+  _syncPending = true;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(doSheetsSync, 2000);
+  showSyncBar("syncing","Guardando en Sheets...");
+}
+
+async function doSheetsSync() {
+  if (!GAPI_TOKEN || !CURRENT_CURSO_ID) return;
+  const cursos = getCursos();
+  const curso  = cursos.find(c=>c.id===CURRENT_CURSO_ID)||{nombre:CURRENT_CURSO_ID,nivel:""};
+  try {
+    await saveCursoToSheets(CURRENT_CURSO_ID, curso.nombre, curso.nivel||"",
+      { students:STATE.students, grid:STATE.grid, locked:STATE.locked });
+    showSyncBar("ok","✅ Guardado en Sheets — "+new Date().toLocaleTimeString("es-CL"));
+    _syncPending = false;
+  } catch(err) {
+    showSyncBar("error","⚠️ Sin sincronizar — "+err.message.slice(0,60));
+  }
+}
+
+// ── Read/write curso data to Sheets ──────────────────────────────
+const STUDENT_HEADERS = ["id","nombre","genero","promedio","rendimiento","participacion",
+                          "diagnostico","isTutor","conducta","visual","auditivo","adelante",
+                          "preferidoCon","evitarCon"];
+
+async function saveCursoToSheets(cursoId, nombre, nivel, data) {
+  const sheetName = cursoId.replace(/[^a-zA-Z0-9_\-]/g,"_").substring(0,80);
+  await ensureSheet(sheetName);
+  await sheetsClear(sheetName+"!A1:Z200");
+
+  const students = data.students||[];
+  const grid     = data.grid||[];
+  const locked   = data.locked||[];
+
+  // Row 1: headers
+  const rows = [STUDENT_HEADERS];
+  // Rows 2…N: students
+  students.forEach(s => rows.push([
+    s.id, s.name||"", s.gender||"M",
+    s.promedio!=null?s.promedio:"",
+    s.performance||"Medio", s.participation||"Media",
+    s.diagnosis||"—",
+    s.isTutor?"TRUE":"FALSE", s.conflict||"—",
+    s.visual?"TRUE":"FALSE", s.hearing?"TRUE":"FALSE", s.frontRow?"TRUE":"FALSE",
+    (s.preferredWith||[]).join(","), (s.avoidWith||[]).join(",")
+  ]));
+
+  // Separator row
+  rows.push(["##GRILLA##","cols→","C1","C2","C3","C4","C5","C6"]);
+  // Grid matrix: 7 rows × 6 cols
+  for (let row=0;row<7;row++) {
+    rows.push(Array.from({length:6},(_,col)=>
+      grid[col]&&grid[col][row]!=null ? grid[col][row] : ""
+    ));
+  }
+  // Locked row
+  rows.push(["##LOCKED##",...locked]);
+
+  await sheetsUpdate(sheetName+"!A1", rows);
+
+  // Update _cursos index sheet
+  await ensureSheet("_cursos");
+  const idxData = await sheetsGet("_cursos!A:E");
+  const idxRows = idxData.values||[["id","nombre","nivel","alumnosCount","updatedAt"]];
+  const now = new Date().toISOString();
+  const existIdx = idxRows.findIndex((r,i)=>i>0&&r[0]===cursoId);
+  const newRow = [cursoId, nombre, nivel, students.length, now];
+  if (existIdx>0) idxRows[existIdx]=newRow; else idxRows.push(newRow);
+  await sheetsClear("_cursos!A1:E200");
+  await sheetsUpdate("_cursos!A1", idxRows);
+}
+
+async function loadCursoFromSheets(cursoId) {
+  if (!GAPI_TOKEN || !GAPI_SPREADSHEET) return false;
+  showSyncBar("syncing","Cargando desde Sheets...");
+  try {
+    const sheetName = cursoId.replace(/[^a-zA-Z0-9_\-]/g,"_").substring(0,80);
+    const resp = await sheetsGet(sheetName+"!A1:P200");
+    const rows = resp.values||[];
+    if (!rows.length) { showSyncBar("ok","ℹ️ Curso vacío en Sheets"); return false; }
+
+    const headers = rows[0];
+    let gridStart = -1;
+    rows.forEach((r,i)=>{ if(r[0]==="##GRILLA##") gridStart=i; });
+
+    const studentRows = gridStart>=0 ? rows.slice(1,gridStart) : rows.slice(1);
+    const students = studentRows.filter(r=>r[0]).map(r=>{
+      const o={};
+      headers.forEach((h,i)=>o[h]=r[i]||"");
+      return {
+        id:         parseInt(o.id)||0,
+        name:       o.nombre||"",
+        gender:     o.genero||"M",
+        promedio:   o.promedio!==""?parseFloat(o.promedio):null,
+        performance:o.rendimiento||"Medio",
+        participation:o.participacion||"Media",
+        diagnosis:  o.diagnostico||"—",
+        isTutor:    o.isTutor==="TRUE",
+        conflict:   o.conducta||"—",
+        visual:     o.visual==="TRUE",
+        hearing:    o.auditivo==="TRUE",
+        frontRow:   o.adelante==="TRUE",
+        preferredWith: o.preferidoCon?o.preferidoCon.split(",").map(Number).filter(Boolean):[],
+        avoidWith:     o.evitarCon?o.evitarCon.split(",").map(Number).filter(Boolean):[],
+      };
+    });
+
+    let grid = buildEmptyGrid();
+    let locked = [];
+    if (gridStart>=0) {
+      for (let r=0;r<7;r++) {
+        const row = rows[gridStart+1+r]||[];
+        for (let col=0;col<6;col++) {
+          const v=parseInt(row[col]);
+          if (!isNaN(v)) grid[col][r]=v;
+        }
+      }
+      const lockedRow = rows.find(r=>r[0]==="##LOCKED##")||[];
+      locked = lockedRow.slice(1).map(Number).filter(Boolean);
+    }
+
+    STATE.students = students;
+    STATE.grid     = grid;
+    STATE.locked   = locked;
+    if (students.length) _idCounter=Math.max(...students.map(x=>x.id||0))+1;
+    saveState();
+    showSyncBar("ok","✅ Cargado desde Sheets — "+students.length+" alumnos");
+    return true;
+  } catch(err) {
+    showSyncBar("error","⚠️ Usando versión local: "+err.message.slice(0,50));
+    return false;
+  }
+}
+
+async function syncAllCursos() {
+  if (!GAPI_TOKEN) { toast("Conecta con Google primero","red"); return; }
+  const list = getCursos();
+  if (!list.length) { toast("No hay cursos para sincronizar","red"); return; }
+  const btn = document.getElementById("btn-sync-all");
+  if (btn) btn.disabled=true;
+  let ok=0,fail=0;
+  for (const curso of list) {
+    showSyncBar("syncing","Sincronizando "+curso.nombre+"...");
+    try {
+      const data=getCursoData(curso.id)||{students:[],grid:[],locked:[]};
+      await saveCursoToSheets(curso.id, curso.nombre, curso.nivel||"", data);
+      ok++;
+    } catch(e) { console.error(curso.nombre, e); fail++; }
+  }
+  const st=document.getElementById("sheets-status");
+  if(st){ st.textContent=`✅ ${ok} cursos sincronizados${fail?" · ❌ "+fail+" fallaron":""}`;st.style.color=fail?"var(--yellow)":"var(--green)"; }
+  showSyncBar("ok",`☁️ ${ok} cursos sincronizados${fail?" ("+fail+" con error)":""}`);
+  if(btn) btn.disabled=false;
+}
+
+// ── Import from Google Forms sheet ───────────────────────────────
+async function importFormFromSheets(cursoId) {
+  if (!GAPI_TOKEN) { toast("Conecta con Google primero","red"); return; }
+  const formSheet = cursoId.replace(/[^a-zA-Z0-9_\-]/g,"_").substring(0,70)+"_form";
+  showSyncBar("syncing","Cargando respuestas de "+formSheet+"...");
+  try {
+    const resp = await sheetsGet(formSheet+"!A1:Z500");
+    const rows = resp.values||[];
+    if (rows.length<=1) { showSyncBar("error","ℹ️ No hay respuestas en '"+formSheet+"' aún"); return; }
+    const headers = rows[0].map(h=>h.toLowerCase().trim());
+    const get=(row,...keys)=>{ for(const k of keys){ const i=headers.findIndex(h=>h.includes(k)); if(i>=0&&row[i]) return row[i]; } return ""; };
+    let added=0,updated=0;
+    rows.slice(1).forEach(row=>{
+      const nombre=get(row,"nombre","name","first");
+      const apellido=get(row,"apellido","last","surname");
+      const fullName=(nombre+" "+apellido).trim();
+      if(!fullName) return;
+      const genero=get(row,"género","genero","gender","sexo");
+      const promedio=get(row,"promedio","nota","grade");
+      const existing=STATE.students.find(s=>s.name.toLowerCase()===fullName.toLowerCase());
+      if(existing){
+        if(genero) existing.gender=genero==="Femenino"||genero==="F"?"F":genero==="Otro"||genero==="O"?"O":"M";
+        if(promedio) existing.promedio=parseFloat(promedio)||null;
+        updated++;
+      } else {
+        STATE.students.push(mkStudent({
+          name:fullName,
+          gender:genero==="Femenino"||genero==="F"?"F":genero==="Otro"?"O":"M",
+          promedio:promedio?parseFloat(promedio):null,
+        }));
+        added++;
+      }
+    });
+    saveState(); renderRoster();
+    showSyncBar("ok",`✅ Forms: ${added} nuevos, ${updated} actualizados`);
+    toast(`📋 ${added+updated} respuestas del formulario importadas`,"green");
+  } catch(err) {
+    showSyncBar("error","❌ "+err.message);
+  }
+}
+
+function showSheetsGuide() {
+  document.getElementById("sheets-guide-modal").style.display="flex";
 }
 
 </script>
