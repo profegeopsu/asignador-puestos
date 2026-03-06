@@ -147,7 +147,7 @@
                  border:1px solid #2d4a6e; border-radius:10px;
                  text-align:center; padding:8px; margin-bottom:14px;
                  font-size:11px; font-weight:800; letter-spacing:.25em; color:#79b8ff; }
-  .grid-wrap { display:flex; flex-direction:row; gap:6px; justify-content:center; align-items:flex-end; }
+  .grid-wrap { display:flex; flex-direction:row; gap:6px; justify-content:stretch; align-items:flex-end; width:100%; }
   .grid-row  { display:flex; align-items:center; gap:6px; }
   .row-lbl   { width:28px; text-align:right; flex-shrink:0; font-size:9px; font-weight:800;
                color:var(--dim); font-family:var(--mono); }
@@ -163,7 +163,7 @@
   /* Pair connector line */
   .seats-row { position:relative; }
 
-  .seat { width:clamp(72px, 7.5vw, 96px); min-height:clamp(58px, 6.5vw, 80px); border-radius:10px; border:2px solid var(--border);
+  .seat { width:100%; min-width:72px; max-width:110px; min-height:clamp(60px, 6.5vw, 84px); border-radius:10px; border:2px solid var(--border);
           background:var(--surface2); cursor:default; transition:transform .12s, box-shadow .12s;
           position:relative; padding:6px 5px 4px; user-select:none; }
   .seat.occupied { cursor:grab; }
@@ -200,7 +200,7 @@
   .detail-panel { display:flex; flex-direction:column; gap:12px; }
   /* Zoom wrapper */
   .zoom-wrap { overflow:auto; }
-  .zoom-inner { transform-origin:top center; transition:transform .15s; display:inline-flex; min-width:100%; justify-content:center; }
+  .zoom-inner { transform-origin:top center; transition:transform .15s; display:flex; width:100%; justify-content:stretch; }
   /* Cmd bar at bottom */
   .cmd-bar { display:flex; align-items:center; gap:10px; padding:10px 14px;
              background:var(--surface); border:1px solid rgba(88,166,255,.25);
@@ -1288,6 +1288,8 @@ async function generateWithAI() {
       showScreen("map");
       renderGrid();
       toast("✨ Distribución generada por IA","green");
+      // sync nav buttons
+      showScreen("map");
     } else {
       throw new Error("parse failed");
     }
@@ -1757,7 +1759,7 @@ function renderGrid() {
   gridWrap.style.display="flex";
   gridWrap.style.flexDirection="row";
   gridWrap.style.gap="clamp(4px,0.6vw,10px)";
-  gridWrap.style.justifyContent="center";
+  gridWrap.style.justifyContent="space-between";
   gridWrap.style.alignItems="flex-end"; // alinear columnas a la base (pizarra)
 
   // PROFESOR: COL 1 a la derecha → pantalla izq→der: col5(C6)…col0(C1)
@@ -2231,11 +2233,23 @@ function showScreen(name) {
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById("screen-"+name).classList.add("active");
   if (name==="prefs") renderPrefs();
-  if (name==="map") renderGrid();
+  if (name==="map") { renderGrid(); setTimeout(autoFitZoom, 80); }
   if (name==="cursos") renderCursos();
   // Show "← Mis Cursos" button only when inside a course
   const btnC = document.getElementById("btn-cursos");
   if (btnC) btnC.style.display = name==="cursos" ? "none" : "inline-flex";
+  // "Ver mapa actual" → show in prefs/roster when map has data
+  const btnVM = document.getElementById("btn-view-map");
+  if (btnVM) {
+    const hasMap = STATE.grid.some(col=>col.some(v=>v!==null));
+    btnVM.style.display = (hasMap && (name==="prefs"||name==="roster")) ? "inline-flex" : "none";
+  }
+  // "Ver mapa →" in topbar
+  const btnTM = document.getElementById("btn-ver-mapa");
+  if (btnTM) {
+    const hasMap2 = STATE.grid.some(col=>col.some(v=>v!==null));
+    btnTM.style.display = hasMap2 ? "inline-flex" : "none";
+  }
 }
 function showCursos() { showScreen("cursos"); }
 
@@ -2936,12 +2950,35 @@ function applyZoom() {
   const inner = document.getElementById("zoom-inner");
   if (inner) {
     inner.style.transform = `scale(${scale})`;
-    // Adjust wrapper height to avoid clipping
+    inner.style.transformOrigin = "top center";
     const wrap = inner.parentElement;
-    if (wrap) wrap.style.height = inner.offsetHeight * scale + "px";
+    if (wrap) wrap.style.height = (inner.scrollHeight * scale) + "px";
   }
   const lbl = document.getElementById("zoom-label");
   if (lbl) lbl.textContent = pct + "%";
+}
+
+function autoFitZoom() {
+  // Calculate what zoom level makes the grid fill the available card width
+  const inner = document.getElementById("zoom-inner");
+  const card  = inner?.closest(".card");
+  if (!inner || !card) return;
+  // Reset to 100% to measure natural width
+  inner.style.transform = "scale(1)";
+  const naturalW = inner.scrollWidth;
+  const available = card.clientWidth - 32; // 16px padding each side
+  if (naturalW <= 0 || available <= 0) return;
+  const ratio = available / naturalW;
+  // Find closest zoom step
+  const targetPct = Math.round(ratio * 100);
+  const targetOffset = targetPct - 100;
+  // Pick the step closest to targetOffset without exceeding available width
+  let best = 0;
+  for (let i = 0; i < ZOOM_STEPS.length; i++) {
+    if (100 + ZOOM_STEPS[i] <= targetPct + 2) best = i;
+  }
+  _zoomLevel = best;
+  applyZoom();
 }
 
 
