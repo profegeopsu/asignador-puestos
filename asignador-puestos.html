@@ -1884,7 +1884,7 @@ function renderGrid() {
   gridWrap.style.flexDirection="row";
   gridWrap.style.gap="6px";
   gridWrap.style.justifyContent="space-between";
-  gridWrap.style.alignItems="flex-end"; // alinear columnas a la base (pizarra)
+  gridWrap.style.alignItems="flex-end"; // anclar columnas abajo (pizarra)
 
   // PROFESOR: COL 1 a la derecha → pantalla izq→der: col5(C6)…col0(C1)
   // ALUMNO:   COL 1 a la izquierda (espejado) → pantalla izq→der: col0(C1)…col5(C6)
@@ -2069,7 +2069,7 @@ function buildSeatEl(col,row) {
     el.addEventListener("mouseleave", ()=>hideTooltip());
 
     // ── LAYOUT: número grande izquierda | info derecha ──
-    el.style.cssText=(el.style.cssText||"")+"display:flex;flex-direction:row;align-items:stretch;padding:0;overflow:hidden;min-height:72px;";
+    el.style.cssText=(el.style.cssText||"")+"display:flex;flex-direction:row;align-items:stretch;padding:0;overflow:hidden;height:88px;min-height:88px;max-height:88px;";
     el.dataset.studentId=s.id;
 
     // ── COLUMNA IZQUIERDA: número + género ──
