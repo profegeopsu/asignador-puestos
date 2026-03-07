@@ -452,6 +452,32 @@
     z-index: 10;
     position: relative;
   }
+  /* ── INFO BADGE ── */
+  .info-badge {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:16px; height:16px; border-radius:50%;
+    background:rgba(88,166,255,.15); border:1px solid rgba(88,166,255,.3);
+    color:var(--accent); font-size:9px; font-weight:900;
+    cursor:pointer; position:relative; flex-shrink:0;
+    transition:.15s;
+  }
+  .info-badge:hover { background:rgba(88,166,255,.3); }
+  .info-tooltip {
+    display:none; position:absolute; left:50%; top:calc(100% + 8px);
+    transform:translateX(-50%);
+    background:var(--surface); border:1px solid var(--border2);
+    border-radius:8px; padding:8px 12px; white-space:nowrap;
+    font-size:11px; color:var(--text); z-index:999;
+    box-shadow:0 4px 16px rgba(0,0,0,.3);
+    pointer-events:none;
+  }
+  .info-tooltip::before {
+    content:""; position:absolute; top:-5px; left:50%; transform:translateX(-50%);
+    width:8px; height:8px; background:var(--surface);
+    border-left:1px solid var(--border2); border-top:1px solid var(--border2);
+    transform:translateX(-50%) rotate(45deg);
+  }
+  .info-badge:hover .info-tooltip { display:block; }
   /* ── MISC ── */
   .section-title { font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
                    color:var(--dim); margin-bottom:10px; }
@@ -493,7 +519,16 @@
     <div class="topbar-brand">
       <span class="topbar-icon">🏫</span>
       <div>
-        <div class="topbar-title">AsignadorPuestos</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="topbar-title">AsignadorPuestos</div>
+          <div class="info-badge" id="app-info-badge">i
+            <div class="info-tooltip" id="app-info-tooltip">
+              <div style="font-weight:800;color:var(--accent);margin-bottom:4px;" id="info-version-label">—</div>
+              <div style="color:var(--muted);">Última actualización</div>
+              <div style="font-weight:700;margin-top:2px;" id="info-version-date">—</div>
+            </div>
+          </div>
+        </div>
         <div class="topbar-sub" id="topbar-curso">— · Gestión pedagógica</div>
       </div>
     </div>
@@ -897,6 +932,7 @@
 // grid[col][row]: col 0=izq, col 5=der; row 0=lejos pizarra (arriba), row max=cerca pizarra (abajo).
 const COL_SIZES  = [6, 6, 7, 7, 6, 6];
 const NUM_COLS   = 6;
+const APP_VERSION = { date: "2026-03-07", time: "22:30", label: "v2.5" };
 const MAX_ROWS   = 7;
 // Alias para compatibilidad con código existente
 const ROW_SIZES  = COL_SIZES;
@@ -3040,6 +3076,11 @@ function closeModal() { document.getElementById("modal").style.display="none"; }
 // ═══════════════════════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded",()=>{
   loadTheme();
+  // Poblar info de versión
+  const _vd = document.getElementById("info-version-date");
+  const _vl = document.getElementById("info-version-label");
+  if (_vd) _vd.textContent = APP_VERSION.date + " · " + APP_VERSION.time + " hrs";
+  if (_vl) _vl.textContent = APP_VERSION.label;
   loadState();
   // Load GIS library for OAuth
   const _gis=document.createElement('script'); _gis.src='https://accounts.google.com/gsi/client'; _gis.async=true; document.head.appendChild(_gis);
@@ -3089,77 +3130,100 @@ function printSeatingChart() {
   const now    = new Date();
   const dateStr= now.toLocaleDateString("es-CL",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
 
-  // Inyectar estilos de impresión directamente en <head>
-  // Letter landscape = 279 x 216 mm → útil ~259 x 196 mm a 96dpi ≈ 980 x 742px
+  // Hoja carta vertical = 816 x 1056px a 96dpi
+  // Rotamos 90° → el contenido ocupa 1056px de ancho y 816px de alto
+  // Centramos en la hoja con transform
+  const PW = 816;   // ancho hoja vertical px
+  const PH = 1056;  // alto hoja vertical px
+
   let ps = document.getElementById("_ps");
   if (!ps) { ps = document.createElement("style"); ps.id="_ps"; document.head.appendChild(ps); }
   ps.textContent = `
-    @page { size: letter landscape; margin: 10mm; }
+    @page { size: letter portrait; margin: 0; }
     @media print {
-      body > *:not(#_print_wrap) { display: none !important; }
-      #_print_wrap {
-        display: flex !important;
-        position: fixed; inset: 0;
-        flex-direction: column;
-        background: white;
-        font-family: Arial, sans-serif;
-        color: #000;
-      }
+      body > *:not(#_print_wrap) { display:none !important; }
+      #_print_wrap { display:block !important; }
     }
   `;
 
-  // Crear o reusar wrapper de impresión
+  // Clonar grid y resolver CSS vars
+  const clone = srcGrid.cloneNode(true);
+  clone.querySelectorAll("*").forEach(el => {
+    const s = el.getAttribute("style")||"";
+    el.setAttribute("style", s
+      .replace(/var\(--text\)/g,        "#000")
+      .replace(/var\(--muted\)/g,       "#555")
+      .replace(/var\(--accent\)/g,      "#1f6feb")
+      .replace(/var\(--violet\)/g,      "#7c3aed")
+      .replace(/var\(--border2?\)/g,    "#ccc")
+      .replace(/var\(--surface2?\)/g,   "#f5f5f5")
+      .replace(/var\(--mono\)/g,        "monospace")
+      .replace(/var\(--[^)]+\)/g,       "")
+    );
+  });
+  clone.style.cssText = [
+    "display:flex","flex-direction:row","gap:5px",
+    "align-items:flex-end","width:100%","flex:1","min-height:0"
+  ].join(";");
+
+  // Contenido rotado: ancho = PH, alto = PW
+  const inner = document.createElement("div");
+  inner.style.cssText = [
+    `width:${PH}px`, `height:${PW}px`,
+    "display:flex", "flex-direction:column",
+    "background:white", "font-family:Arial,sans-serif", "color:#000",
+    "padding:12px 14px 8px", "box-sizing:border-box", "gap:6px"
+  ].join(";");
+
+  // Encabezado
+  inner.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:5px;flex-shrink:0;">
+      <div>
+        <div style="font-size:16px;font-weight:900;line-height:1;">MAPA DE ASIENTOS</div>
+        <div style="font-size:10px;color:#333;margin-top:2px;">${curso.nombre}${curso.nivel?" · "+curso.nivel:""}</div>
+      </div>
+      <div style="font-size:8px;color:#555;text-align:right;line-height:1.6;">
+        <div style="font-weight:700;text-transform:capitalize;">${dateStr}</div>
+        <div>Libro de Clases · Distribución de puestos</div>
+      </div>
+    </div>`;
+  inner.appendChild(clone);
+
+  // Pizarra
+  const piz = document.createElement("div");
+  piz.style.cssText = "background:#111;color:white;text-align:center;padding:5px;font-size:10px;font-weight:900;letter-spacing:.2em;flex-shrink:0;border-radius:4px;";
+  piz.textContent   = "▌   P I Z A R R Ó N   —   D O C E N T E   ▐";
+  inner.appendChild(piz);
+
+  // Wrapper que rota y centra en la hoja vertical
   let wrap = document.getElementById("_print_wrap");
   if (wrap) wrap.remove();
   wrap = document.createElement("div");
   wrap.id = "_print_wrap";
-  wrap.style.cssText = "display:none;flex-direction:column;background:white;font-family:Arial,sans-serif;color:#000;position:fixed;inset:0;z-index:99999;";
+  wrap.style.cssText = [
+    "display:none",
+    `width:${PW}px`, `height:${PH}px`,
+    "position:fixed", "top:0", "left:0",
+    "overflow:hidden", "background:white", "z-index:99999",
+    "align-items:center", "justify-content:center"
+  ].join(";");
 
-  // Encabezado
-  wrap.innerHTML = `
-    <div style="padding:6px 12px;border-bottom:2px solid #000;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
-      <div>
-        <div style="font-size:15px;font-weight:900;">MAPA DE ASIENTOS</div>
-        <div style="font-size:10px;color:#333;">${curso.nombre}${curso.nivel?" · "+curso.nivel:""}</div>
-      </div>
-      <div style="font-size:9px;color:#555;text-align:right;">
-        <div style="text-transform:capitalize;font-weight:700;">${dateStr}</div>
-        <div>Libro de Clases · Distribución de puestos</div>
-      </div>
-    </div>`;
-
-  // Clonar el grid tal como está en pantalla
-  const clone = srcGrid.cloneNode(true);
-  clone.style.cssText = "flex:1;min-height:0;display:flex;flex-direction:row;gap:6px;align-items:flex-end;width:100%;padding:6px 12px;box-sizing:border-box;";
-  // Arreglar variables CSS → valores literales para impresión b&w compatible
-  clone.querySelectorAll("*").forEach(el => {
-    const s = el.getAttribute("style")||"";
-    el.setAttribute("style", s
-      .replace(/var\(--text\)/g,"#000")
-      .replace(/var\(--muted\)/g,"#555")
-      .replace(/var\(--accent\)/g,"#1f6feb")
-      .replace(/var\(--violet\)/g,"#7c3aed")
-      .replace(/var\(--border[2]?\)/g,"#ccc")
-      .replace(/var\(--surface[2]?\)/g,"#f5f5f5")
-      .replace(/var\(--mono\)/g,"monospace")
-      .replace(/var\(--[^)]+\)/g,"")
-    );
-  });
-  wrap.appendChild(clone);
-
-  // Pizarra
-  const piz = document.createElement("div");
-  piz.style.cssText = "background:#111;color:white;text-align:center;padding:4px;font-size:9px;font-weight:900;letter-spacing:.2em;flex-shrink:0;";
-  piz.textContent = "▌   P I Z A R R Ó N   —   D O C E N T E   ▐";
-  wrap.appendChild(piz);
-
+  // El inner rotado -90° y reposicionado para quedar centrado
+  const rotWrap = document.createElement("div");
+  rotWrap.style.cssText = [
+    "position:absolute",
+    `top:${(PH - PW) / 2}px`,
+    `left:${(PW - PH) / 2}px`,
+    "transform:rotate(-90deg)",
+    "transform-origin:center center"
+  ].join(";");
+  rotWrap.appendChild(inner);
+  wrap.appendChild(rotWrap);
   document.body.appendChild(wrap);
+
   wrap.style.display = "flex";
-
   window.print();
-
-  // Limpiar después
-  setTimeout(()=>{ wrap.remove(); ps.textContent=""; }, 1000);
+  setTimeout(()=>{ wrap.remove(); ps.textContent=""; }, 1500);
 }
 
 
