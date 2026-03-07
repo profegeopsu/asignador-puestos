@@ -2525,6 +2525,24 @@ function renderCursos() {
     grid.appendChild(card);
   });
 
+  // Estado vacío
+  if (list.length === 0) {
+    const empty = document.createElement("div");
+    empty.style.cssText = "grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:48px 24px;text-align:center;";
+    empty.innerHTML = `
+      <div style="font-size:48px;">🏫</div>
+      <div style="font-size:18px;font-weight:800;color:var(--text);">Bienvenido a AsignadorPuestos</div>
+      <div style="font-size:13px;color:var(--muted);max-width:360px;line-height:1.6;">
+        Aún no tienes cursos guardados. Carga el demo para explorar todas las funciones o crea uno nuevo.
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
+        <button class="btn btn-primary" onclick="importDemo()" style="font-size:13px;padding:10px 20px;">📥 Cargar Demo</button>
+        <button class="btn btn-ghost" onclick="newCurso()" style="font-size:13px;padding:10px 20px;">➕ Nuevo curso</button>
+      </div>`;
+    grid.appendChild(empty);
+    return;
+  }
+
   const addCard = document.createElement("div");
   addCard.className = "curso-card curso-add-card";
   addCard.onclick = newCurso;
