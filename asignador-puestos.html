@@ -2348,21 +2348,31 @@ function renderStudentOverlay() {
   if (!gc) return;
   gc.innerHTML="";
 
+  // Heredar tema del body
+  const isLight = document.body.classList.contains("light");
+  const BG      = isLight ? "#f6f8fa" : "#07090f";
+  const CARD_BG = isLight ? "#ffffff" : "rgba(255,255,255,.07)";
+  const CARD_BD = isLight ? "rgba(0,0,0,.15)" : "rgba(255,255,255,.2)";
+  const TEXT    = isLight ? "#0d1117" : "#f0f6fc";
+  const EMPTY_B = isLight ? "rgba(0,0,0,.12)" : "rgba(255,255,255,.06)";
+
+  // Actualizar fondo del overlay
+  const overlay = document.getElementById("student-overlay");
+  if (overlay) overlay.style.background = BG;
+
   const useGroups = STATE.groupMode === "groups";
 
-  // ── Pizarra ARRIBA ──
+  // Pizarra
   const boardEl=document.createElement("div");
-  boardEl.style.cssText="background:linear-gradient(90deg,#1f3a5c,#1a1f35);border:1px solid #2d4a6e;border-radius:8px;text-align:center;padding:6px 0;margin-bottom:6px;font-size:clamp(10px,1.2vw,14px);font-weight:800;letter-spacing:.2em;color:#79b8ff;flex-shrink:0;";
+  boardEl.style.cssText=`background:linear-gradient(90deg,#1f3a5c,#1a1f35);border:1px solid #2d4a6e;border-radius:8px;text-align:center;padding:6px 0;margin-bottom:6px;font-size:clamp(10px,1.2vw,14px);font-weight:800;letter-spacing:.2em;color:#79b8ff;flex-shrink:0;`;
   boardEl.textContent="▌  P I Z A R R Ó N  ▐";
   gc.appendChild(boardEl);
 
-  // ── Contenedor del grid: ocupa todo el espacio restante ──
   const gridWrap=document.createElement("div");
   gridWrap.style.cssText="flex:1;min-height:0;display:flex;flex-direction:row;gap:clamp(4px,.6vw,10px);align-items:flex-start;width:100%;";
 
-  const colPairsStudent = [[0,1],[2,3],[4,5]];
-
   if(useGroups) {
+    const colPairsStudent = [[0,1],[2,3],[4,5]];
     for(const [colA,colB] of colPairsStudent){
       const pairGroupNums=new Set();
       for(const g of Object.keys(SEAT_GROUPS)){
@@ -2380,15 +2390,12 @@ function renderStudentOverlay() {
         const gc2=GROUP_COLORS[parseInt(g)]||"#555";
         const gSeats=SEAT_GROUPS[g].filter(([c])=>c===colA||c===colB);
         const rows=[...new Set(gSeats.map(([c,r])=>r))].sort((a,b)=>b-a);
-
         const groupBox=document.createElement("div");
         groupBox.style.cssText=`border:2px solid ${gc2};border-radius:12px;padding:clamp(14px,1.5vw,20px) clamp(3px,.4vw,6px) clamp(5px,.5vw,8px);position:relative;display:flex;flex-direction:row;gap:clamp(3px,.4vw,6px);align-items:flex-start;`;
-
         const glbl=document.createElement("div");
-        glbl.style.cssText=`position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:clamp(8px,.8vw,11px);font-weight:800;letter-spacing:.05em;padding:1px 8px;border-radius:20px;border:1.5px solid ${gc2};background:#07090f;color:${gc2};white-space:nowrap;`;
+        glbl.style.cssText=`position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:clamp(8px,.8vw,11px);font-weight:800;padding:1px 8px;border-radius:20px;border:1.5px solid ${gc2};background:${BG};color:${gc2};white-space:nowrap;`;
         glbl.textContent=`Grupo ${g}`;
         groupBox.appendChild(glbl);
-
         for(const col of [colA,colB]){
           const colSub=document.createElement("div");
           colSub.style.cssText="display:flex;flex-direction:column;gap:clamp(3px,.4vw,6px);flex:1;min-width:0;";
@@ -2398,13 +2405,13 @@ function renderStudentOverlay() {
               const s=id?getById(id):null;
               const seat=document.createElement("div");
               seat.style.cssText=
-                `background:${s?gc2+"22":"transparent"};`+
-                `border:1.5px solid ${s?gc2+"88":"rgba(255,255,255,.06)"};`+
+                `background:${s?gc2+"22":EMPTY_B};`+
+                `border:1.5px solid ${s?gc2+"88":EMPTY_B};`+
                 `border-radius:8px;display:flex;align-items:center;justify-content:center;`+
-                `padding:clamp(4px,.5vw,8px);min-height:clamp(40px,5vh,70px);`;
+                `padding:clamp(4px,.5vw,8px);height:clamp(44px,5.5vh,72px);box-sizing:border-box;`;
               if(s){
                 const nm=document.createElement("div");
-                nm.style.cssText="font-size:clamp(11px,1.1vw,16px);font-weight:700;color:#f0f6fc;text-align:center;line-height:1.2;width:100%;word-break:break-word;";
+                nm.style.cssText=`font-size:clamp(11px,1.1vw,16px);font-weight:700;color:${TEXT};text-align:center;line-height:1.2;width:100%;word-break:break-word;`;
                 nm.textContent=s.name||`A${s.id}`;
                 seat.appendChild(nm);
               }
@@ -2418,7 +2425,8 @@ function renderStudentOverlay() {
       gridWrap.appendChild(pairWrap);
     }
   } else {
-    // Vista filas: 6 columnas que llenan el ancho
+    // Vista filas: altura fija igual para todas las casillas
+    const SEAT_H = "clamp(44px,5.5vh,72px)";
     for(const col of [0,1,2,3,4,5]){
       const colDiv=document.createElement("div");
       colDiv.style.cssText="display:flex;flex-direction:column;gap:clamp(4px,.5vh,8px);flex:1;min-width:0;";
@@ -2427,27 +2435,25 @@ function renderStudentOverlay() {
         const s=id?getById(id):null;
         const seat=document.createElement("div");
         seat.style.cssText=
-          `background:${s?"rgba(255,255,255,.07)":"transparent"};`+
-          `border:2px solid ${s?"rgba(255,255,255,.2)":"rgba(255,255,255,.04)"};`+
+          `background:${s?CARD_BG:EMPTY_B};`+
+          `border:2px solid ${s?CARD_BD:EMPTY_B};`+
           `border-radius:10px;display:flex;align-items:center;justify-content:center;`+
-          `padding:clamp(4px,.5vw,8px);flex:1;min-height:clamp(40px,5vh,72px);`;
+          `padding:clamp(4px,.5vw,8px);height:${SEAT_H};box-sizing:border-box;`;
         if(s){
           const nm=document.createElement("div");
-          nm.style.cssText="font-size:clamp(11px,1.1vw,17px);font-weight:700;color:#f0f6fc;text-align:center;line-height:1.2;width:100%;word-break:break-word;";
+          nm.style.cssText=`font-size:clamp(11px,1.1vw,17px);font-weight:700;color:${TEXT};text-align:center;line-height:1.2;width:100%;word-break:break-word;`;
           nm.textContent=s.name||`A${s.id}`;
           seat.appendChild(nm);
         }
         colDiv.appendChild(seat);
       }
-      // Label columna al fondo
       const lbl=document.createElement("div");
-      lbl.style.cssText="font-size:clamp(7px,.7vw,9px);font-weight:800;color:#30363d;text-align:center;padding-top:2px;letter-spacing:.06em;flex-shrink:0;";
+      lbl.style.cssText=`font-size:clamp(7px,.7vw,9px);font-weight:800;color:${isLight?"#aaa":"#30363d"};text-align:center;padding-top:2px;letter-spacing:.06em;flex-shrink:0;`;
       lbl.textContent=`COL ${col+1}`;
       colDiv.appendChild(lbl);
       gridWrap.appendChild(colDiv);
     }
   }
-
   gc.appendChild(gridWrap);
 }
 
@@ -3207,7 +3213,10 @@ function printSeatingChart() {
     ▌   P I Z A R R Ó N   —   D O C E N T E   ▐
   </div>
 </div>
-<script>window.onload=function(){ window.print(); }<\/script>
+<div id="hint" style="position:fixed;top:0;left:0;right:0;background:#1f6feb;color:white;text-align:center;padding:10px;font-family:Arial;font-size:13px;font-weight:700;z-index:9999;">
+  ⚠️ Antes de imprimir: en el diálogo, despliega <strong>"Más ajustes"</strong> y desactiva <strong>"Encabezados y pies de página"</strong>
+</div>
+<script>window.onload=function(){ window.print(); document.getElementById("hint").style.display="none"; }<\/script>
 </body></html>`;
 
   const pw = window.open("","_blank");
@@ -3224,6 +3233,9 @@ function toggleTheme() {
   const btn = document.getElementById("btn-theme");
   if (btn) btn.textContent = isLight ? "🌑" : "🌙";
   localStorage.setItem("seating_theme", isLight ? "light" : "dark");
+  // Re-render vista alumno si está abierta
+  const ov = document.getElementById("student-overlay");
+  if (ov && ov.style.display !== "none") renderStudentOverlay();
 }
 function loadTheme() {
   const saved = localStorage.getItem("seating_theme");
