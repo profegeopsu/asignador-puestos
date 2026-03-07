@@ -84,7 +84,9 @@
   .card-body { padding:16px 18px; }
 
   /* ── TABLE ── */
-  .tbl-wrap { overflow-x:auto; }
+  .tbl-wrap { overflow-x:auto; overflow-y:auto; max-height:calc(100vh - 280px); border-radius:10px; border:1px solid var(--border); }
+  .tbl-wrap table { border-collapse:collapse; width:100%; }
+  .tbl-wrap thead th { position:sticky; top:0; z-index:10; background:var(--surface2); box-shadow:0 1px 0 var(--border2); }
   table { width:100%; border-collapse:collapse; font-size:12px; }
   th { padding:8px 10px; text-align:left; font-size:10px; font-weight:700; letter-spacing:.07em;
        text-transform:uppercase; color:var(--dim); border-bottom:2px solid var(--border);
@@ -472,6 +474,33 @@
     transition: .2s; z-index: 5; flex-shrink: 0;
   }
   #toolbar-toggle:hover { background: var(--surface); color: var(--text); }
+  /* ── ORDEN CURSOS ── */
+  .curso-card { cursor:grab; }
+  .curso-card:active { cursor:grabbing; }
+  .curso-card.drag-ghost { opacity:.35; transform:scale(.97); }
+  .curso-card.drag-over-card {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px var(--accent), 0 8px 24px rgba(88,166,255,.2);
+    transform: translateY(-3px);
+  }
+  .sort-hint {
+    font-size:10px; color:var(--muted); display:flex; align-items:center;
+    gap:5px; margin-bottom:-8px;
+  }
+  /* ── CURSOS ARCHIVADOS ── */
+  .curso-card.archived {
+    opacity: .55;
+    border-style: dashed !important;
+    filter: grayscale(.4);
+  }
+  .archived-section-title {
+    font-size: 10px; font-weight: 800; letter-spacing: .1em;
+    color: var(--muted); text-transform: uppercase;
+    margin: 18px 0 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .archived-section-title::after {
+    content: ""; flex: 1; height: 1px; background: var(--border2);
+  }
   /* ── INFO BADGE ── */
   .info-badge {
     display:inline-flex; align-items:center; justify-content:center;
@@ -618,6 +647,15 @@
 
         <div id="sheets-status" style="font-size:11px;margin-top:8px;color:var(--muted);"></div>
       </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:-4px;flex-wrap:wrap;gap:6px;">
+        <div class="sort-hint" id="sort-hint">
+          <span>⠿</span> Arrastra las tarjetas para reordenar
+        </div>
+        <div style="display:flex;gap:6px;" id="sort-btns">
+          <button class="btn btn-ghost btn-sm" onclick="sortCursosByName()" title="Ordenar A→Z">A→Z</button>
+          <button class="btn btn-ghost btn-sm" onclick="sortCursosByDate()" title="Ordenar por fecha">📅</button>
+        </div>
+      </div>
       <div class="curso-grid" id="curso-grid"></div>
     </div>
   </div>
@@ -639,6 +677,7 @@
       </div>
       <div class="flex-center">
         <button class="btn btn-ghost btn-sm" onclick="importDemo()">📥 Cargar demo</button>
+        <button class="btn btn-ghost btn-sm" onclick="showPasteImport()">📋 Pegar planilla</button>
         <button class="btn btn-ghost btn-sm" onclick="exportCurso()">💾 Exportar curso</button>
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-form-file').click()" title="Importar respuestas JSON del formulario">📋 Importar JSON</button>
         <button class="btn btn-ghost btn-sm" onclick="importFormFromSheets(CURRENT_CURSO_ID)" title="Importar respuestas desde Google Sheets (requiere conexión)">☁️ Importar Forms</button>
@@ -2549,6 +2588,188 @@ function showScreen(name) {
     btnTM.style.display = hasMap2 ? "inline-flex" : "none";
   }
 }
+
+function showPasteImport() {
+  const ex = document.getElementById("_paste_modal");
+  if (ex) ex.remove();
+
+  const ov = document.createElement("div");
+  ov.id = "_paste_modal";
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);padding:16px;";
+
+  ov.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:24px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:16px;font-weight:800;">📋 Pegar desde planilla</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Copia las celdas en Excel o Google Sheets y pégalas aquí</div>
+        </div>
+        <button onclick="document.getElementById('_paste_modal').remove()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;">✕</button>
+      </div>
+
+      <!-- Ejemplo formato -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--muted);line-height:1.8;">
+        <strong style="color:var(--text);">Formatos aceptados</strong> — el sistema detecta automáticamente:<br>
+        <code style="font-size:10px;color:var(--accent);">1 &nbsp; Juan Pérez González &nbsp; 6.2</code><br>
+        <code style="font-size:10px;color:var(--accent);">1 &nbsp; Juan &nbsp; Pérez González &nbsp; 6.2</code><br>
+        <code style="font-size:10px;color:var(--accent);">1 &nbsp; Juan &nbsp; Pérez &nbsp; González &nbsp; 6.2</code><br>
+        <span style="font-size:10px;">Columnas separadas por <strong>Tab</strong> (al copiar de planilla). El N° y promedio son opcionales.</span>
+      </div>
+
+      <!-- Textarea -->
+      <textarea id="_paste_ta" placeholder="Pega aquí los datos copiados de tu planilla (Ctrl+V / Cmd+V)..."
+        style="width:100%;height:160px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px;font-size:12px;color:var(--text);font-family:var(--mono);resize:vertical;outline:none;"
+        oninput="previewPaste()"></textarea>
+
+      <!-- Preview -->
+      <div id="_paste_preview" style="display:none;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;" id="_paste_preview_title"></div>
+        <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;" id="_paste_preview_table"></table>
+        </div>
+        <div id="_paste_preview_warn" style="font-size:10px;color:var(--yellow);margin-top:6px;"></div>
+      </div>
+
+      <!-- Opciones -->
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
+          <input type="checkbox" id="_paste_update" checked style="accent-color:var(--accent);">
+          Actualizar promedio si el alumno ya existe
+        </label>
+      </div>
+
+      <!-- Botones -->
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="document.getElementById('_paste_modal').remove()" class="btn btn-ghost">Cancelar</button>
+        <button onclick="executePasteImport()" id="_paste_btn_import" class="btn btn-primary" disabled>Importar</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(ov);
+  ov.addEventListener("click", e => { if (e.target===ov) ov.remove(); });
+  setTimeout(() => document.getElementById("_paste_ta")?.focus(), 100);
+}
+
+function parsePasteRows(raw) {
+  const rows = [];
+  const lines = raw.trim().split("\n").filter(l => l.trim());
+  for (const line of lines) {
+    const cols = line.split("\t").map(c => c.trim()).filter(c => c);
+    if (!cols.length) continue;
+
+    let num=null, nombre="", promedio=null;
+
+    // Detectar si primera col es número de lista
+    const maybeNum = parseInt(cols[0]);
+    let offset = 0;
+    if (!isNaN(maybeNum) && maybeNum > 0 && maybeNum < 200 && cols[0].match(/^\d+$/)) {
+      num = maybeNum;
+      offset = 1;
+    }
+
+    const remaining = cols.slice(offset);
+
+    // Detectar si última col es promedio (número decimal 1.0–7.0)
+    const last = remaining[remaining.length - 1];
+    const maybePromedio = parseFloat(last?.replace(",","."));
+    if (!isNaN(maybePromedio) && maybePromedio >= 1.0 && maybePromedio <= 7.0 && remaining.length > 1) {
+      promedio = maybePromedio;
+      remaining.pop();
+    }
+
+    // Lo que queda es el nombre (1, 2 o 3 partes)
+    nombre = remaining.join(" ").replace(/\s+/g," ").trim();
+    if (!nombre) continue;
+
+    rows.push({ num, nombre, promedio });
+  }
+  return rows;
+}
+
+function previewPaste() {
+  const raw  = document.getElementById("_paste_ta")?.value || "";
+  const prev = document.getElementById("_paste_preview");
+  const btn  = document.getElementById("_paste_btn_import");
+  if (!raw.trim()) { prev.style.display="none"; btn.disabled=true; return; }
+
+  const rows = parsePasteRows(raw);
+  if (!rows.length) { prev.style.display="none"; btn.disabled=true; return; }
+
+  // Detectar duplicados contra lista actual
+  const existing = STATE.students.map(s => s.name.toLowerCase().trim());
+  let dupCount = 0;
+
+  // Construir tabla preview
+  let tbl = `<thead><tr style="background:var(--surface2);">
+    <th style="padding:5px 8px;text-align:left;font-weight:800;font-size:10px;border-bottom:1px solid var(--border2);">#</th>
+    <th style="padding:5px 8px;text-align:left;font-weight:800;font-size:10px;border-bottom:1px solid var(--border2);">Nombre</th>
+    <th style="padding:5px 8px;text-align:center;font-weight:800;font-size:10px;border-bottom:1px solid var(--border2);">Promedio</th>
+    <th style="padding:5px 8px;text-align:center;font-weight:800;font-size:10px;border-bottom:1px solid var(--border2);">Estado</th>
+  </tr></thead><tbody>`;
+
+  rows.forEach((r, i) => {
+    const isDup = existing.includes(r.nombre.toLowerCase());
+    if (isDup) dupCount++;
+    const bg  = isDup ? "rgba(227,179,65,.08)" : (i%2===0?"var(--surface2)":"transparent");
+    const tag = isDup
+      ? `<span style="font-size:9px;background:rgba(227,179,65,.2);color:var(--yellow);padding:1px 6px;border-radius:10px;">ya existe</span>`
+      : `<span style="font-size:9px;background:rgba(63,185,80,.15);color:var(--green);padding:1px 6px;border-radius:10px;">nuevo</span>`;
+    tbl += `<tr style="background:${bg};border-bottom:1px solid var(--border);">
+      <td style="padding:4px 8px;color:var(--muted);">${r.num ?? i+1}</td>
+      <td style="padding:4px 8px;font-weight:600;">${r.nombre}</td>
+      <td style="padding:4px 8px;text-align:center;color:${r.promedio ? (r.promedio>=5.5?"#3fb950":r.promedio>=4?"#e3b341":"#f85149") : "var(--muted)"};">${r.promedio ?? "—"}</td>
+      <td style="padding:4px 8px;text-align:center;">${tag}</td>
+    </tr>`;
+  });
+  tbl += "</tbody>";
+
+  document.getElementById("_paste_preview_table").innerHTML = tbl;
+  document.getElementById("_paste_preview_title").textContent =
+    `${rows.length} alumno${rows.length!==1?"s":""} detectado${rows.length!==1?"s":""}`;
+  document.getElementById("_paste_preview_warn").textContent =
+    dupCount ? `⚠️ ${dupCount} alumno${dupCount!==1?"s":""} ya existe${dupCount===1?"":"n"} en la lista` : "";
+  prev.style.display = "block";
+  btn.disabled = false;
+}
+
+function executePasteImport() {
+  const raw    = document.getElementById("_paste_ta")?.value || "";
+  const update = document.getElementById("_paste_update")?.checked;
+  const rows   = parsePasteRows(raw);
+  if (!rows.length) return;
+
+  let added = 0, updated = 0;
+
+  rows.forEach((r, i) => {
+    const existIdx = STATE.students.findIndex(s =>
+      s.name.toLowerCase().trim() === r.nombre.toLowerCase().trim()
+    );
+    if (existIdx >= 0) {
+      if (update && r.promedio !== null) {
+        STATE.students[existIdx].promedio = r.promedio;
+        updated++;
+      }
+    } else {
+      const id = ++_idCounter;
+      STATE.students.push({
+        id, name: r.nombre, gender: "M",
+        diagnosis: "—", performance: "Medio",
+        participation: "Media",
+        promedio: r.promedio,
+        isTutor: false, conflict: "—",
+        visual: false, hearing: false, frontRow: false,
+        grupoSep: null, notes: "", listNumber: r.num ?? (STATE.students.length + 1)
+      });
+      added++;
+    }
+  });
+
+  saveState();
+  renderRoster();
+  document.getElementById("_paste_modal")?.remove();
+  toast(`✅ ${added} agregado${added!==1?"s":""}${updated?` · ${updated} actualizado${updated!==1?"s":""}":""}`, "green");
+}
+
 function showCursos() { showScreen("cursos"); }
 
 const CURSO_COLORS = ["#58a6ff","#3fb950","#f78166","#d2a8ff","#ffa657","#79c0ff","#ff7b72","#56d364","#e3b341","#bc8cff"];
@@ -2559,9 +2780,10 @@ function renderCursos() {
   const list = getCursos();
   grid.innerHTML = "";
 
-  list.forEach(c => {
+  list.filter(c=>!c.archived).forEach(c => {
     const card = document.createElement("div");
     card.className = "curso-card" + (c.id===CURRENT_CURSO_ID?" active-curso":"");
+    card.dataset.cursoId = c.id;
     const color = c.color || CURSO_COLORS[list.indexOf(c) % CURSO_COLORS.length];
     if (color) { card.style.borderTopColor=color; card.style.borderTopWidth="3px"; }
     const updated = c.updatedAt ? new Date(c.updatedAt).toLocaleDateString("es-CL") : "—";
@@ -2586,7 +2808,7 @@ function renderCursos() {
   });
 
   // Estado vacío
-  if (list.length === 0) {
+  if (list.filter(c=>!c.archived).length === 0) {
     const empty = document.createElement("div");
     empty.style.cssText = "grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:48px 24px;text-align:center;";
     empty.innerHTML = `
@@ -2608,6 +2830,39 @@ function renderCursos() {
   addCard.onclick = newCurso;
   addCard.innerHTML = `<div class="curso-add-icon">➕</div><div>Nuevo curso</div>`;
   grid.appendChild(addCard);
+
+  // Activar drag-and-drop
+  setTimeout(initCursoCardDrag, 0);
+
+  // ── Sección archivados ──
+  const archived = list.filter(c=>c.archived);
+  if (archived.length > 0) {
+    const archTitle = document.createElement("div");
+    archTitle.className = "archived-section-title";
+    archTitle.style.cssText = "grid-column:1/-1;";
+    archTitle.innerHTML = `<span>📦 Archivados (${archived.length})</span>`;
+    grid.appendChild(archTitle);
+
+    archived.forEach(c => {
+      const color = c.color || CURSO_COLORS[list.indexOf(c) % CURSO_COLORS.length];
+      const archivedDate = c.archivedAt ? new Date(c.archivedAt).toLocaleDateString("es-CL") : "—";
+      const card = document.createElement("div");
+      card.className = "curso-card archived";
+      if (color) { card.style.borderTopColor=color; card.style.borderTopWidth="3px"; }
+      card.innerHTML = `
+        <div class="curso-card-badge" style="background:rgba(120,120,120,.15);color:var(--muted);">Archivado</div>
+        <div class="curso-card-name">
+          <span class="curso-color-dot" style="background:${color};"></span>${c.nombre}
+        </div>
+        <div class="curso-card-meta">${c.nivel||"Sin nivel"}<br>Archivado: ${archivedDate}</div>
+        <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="unarchiveCurso('${c.id}')" title="Restaurar">♻️ Restaurar</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportarCursoById('${c.id}')" title="Exportar">💾</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="confirmDeleteCurso('${c.id}','${c.nombre.replace(/'/g,"\'")}')">🗑</button>
+        </div>`;
+      grid.appendChild(card);
+    });
+  }
 }
 
 async function openCurso(id) {
@@ -2663,12 +2918,166 @@ function exportarCursoById(id) {
 }
 
 function confirmDeleteCurso(id, nombre) {
-  if (!confirm(`¿Eliminar el curso "${nombre}"? Esta acción no se puede deshacer.`)) return;
-  deleteCurso(id);
+  // Modal personalizado con 3 opciones
+  const existing = document.getElementById("_del_modal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "_del_modal";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);";
+
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:28px 28px 22px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+      <div style="font-size:28px;text-align:center;margin-bottom:12px;">🗂️</div>
+      <div style="font-size:15px;font-weight:800;text-align:center;margin-bottom:6px;">¿Qué quieres hacer con<br>"${nombre}"?</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:22px;line-height:1.5;">
+        Puedes archivarlo para conservarlo oculto,<br>o eliminarlo definitivamente.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button id="_btn_archive" style="padding:11px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;">📦</span>
+          <div style="text-align:left;">
+            <div>Archivar curso</div>
+            <div style="font-size:10px;font-weight:400;color:var(--muted);">Se oculta pero puedes restaurarlo después</div>
+          </div>
+        </button>
+        <button id="_btn_delete" style="padding:11px;border-radius:10px;border:1px solid rgba(248,81,73,.3);background:rgba(248,81,73,.08);color:#f85149;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;">🗑️</span>
+          <div style="text-align:left;">
+            <div>Eliminar definitivamente</div>
+            <div style="font-size:10px;font-weight:400;color:var(--muted);">Esta acción no se puede deshacer</div>
+          </div>
+        </button>
+        <button id="_btn_cancel" style="padding:9px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;">
+          Cancelar
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("_btn_cancel").onclick  = () => overlay.remove();
+  overlay.addEventListener("click", e => { if (e.target===overlay) overlay.remove(); });
+
+  document.getElementById("_btn_archive").onclick = () => {
+    overlay.remove();
+    archiveCurso(id);
+  };
+
+  document.getElementById("_btn_delete").onclick = () => {
+    overlay.remove();
+    // Segunda confirmación para eliminar
+    const overlay2 = document.createElement("div");
+    overlay2.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);";
+    overlay2.innerHTML = `
+      <div style="background:var(--surface);border:1px solid rgba(248,81,73,.4);border-radius:16px;padding:24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+        <div style="font-size:28px;text-align:center;margin-bottom:10px;">⚠️</div>
+        <div style="font-size:14px;font-weight:800;text-align:center;margin-bottom:8px;">¿Confirmar eliminación?</div>
+        <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:20px;line-height:1.5;">
+          Se borrarán todos los datos de<br><strong style="color:var(--text);">"${nombre}"</strong> de forma permanente.
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button id="_btn_cancel2" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;">Cancelar</button>
+          <button id="_btn_confirm_del" style="flex:1;padding:10px;border-radius:8px;border:none;background:#f85149;color:white;font-size:12px;font-weight:800;cursor:pointer;">Sí, eliminar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay2);
+    document.getElementById("_btn_cancel2").onclick = () => overlay2.remove();
+    document.getElementById("_btn_confirm_del").onclick = () => {
+      overlay2.remove();
+      deleteCurso(id);
+      if (CURRENT_CURSO_ID===id) { CURRENT_CURSO_ID=null; STATE.students=[]; STATE.grid=buildEmptyGrid(); }
+      renderCursos();
+      toast("🗑 Curso eliminado","red");
+    };
+  };
+}
+
+
+// ── Orden de cursos ──
+let _dragSrcId = null;
+
+function initCursoCardDrag() {
+  const cards = document.querySelectorAll(".curso-card:not(.curso-add-card):not(.archived)");
+  cards.forEach(card => {
+    card.setAttribute("draggable", "true");
+    card.addEventListener("dragstart", e => {
+      _dragSrcId = card.dataset.cursoId;
+      setTimeout(() => card.classList.add("drag-ghost"), 0);
+      e.dataTransfer.effectAllowed = "move";
+    });
+    card.addEventListener("dragend", () => {
+      card.classList.remove("drag-ghost");
+      document.querySelectorAll(".curso-card").forEach(c => c.classList.remove("drag-over-card"));
+    });
+    card.addEventListener("dragover", e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      document.querySelectorAll(".curso-card").forEach(c => c.classList.remove("drag-over-card"));
+      card.classList.add("drag-over-card");
+    });
+    card.addEventListener("dragleave", () => card.classList.remove("drag-over-card"));
+    card.addEventListener("drop", e => {
+      e.preventDefault();
+      card.classList.remove("drag-over-card");
+      const targetId = card.dataset.cursoId;
+      if (!_dragSrcId || _dragSrcId === targetId) return;
+      const list = getCursos();
+      const fromIdx = list.findIndex(c => c.id === _dragSrcId);
+      const toIdx   = list.findIndex(c => c.id === targetId);
+      if (fromIdx < 0 || toIdx < 0) return;
+      const [moved] = list.splice(fromIdx, 1);
+      list.splice(toIdx, 0, moved);
+      saveCursos(list);
+      renderCursos();
+    });
+  });
+}
+
+function sortCursosByName() {
+  const list = getCursos();
+  const active  = list.filter(c => !c.archived).sort((a,b) => a.nombre.localeCompare(b.nombre, "es"));
+  const archived= list.filter(c =>  c.archived);
+  saveCursos([...active, ...archived]);
+  renderCursos();
+  toast("Ordenado A→Z", "accent");
+}
+
+function sortCursosByDate() {
+  const list = getCursos();
+  const active  = list.filter(c => !c.archived).sort((a,b) => {
+    const da = new Date(b.updatedAt||0), db = new Date(a.updatedAt||0);
+    return da - db;
+  });
+  const archived= list.filter(c =>  c.archived);
+  saveCursos([...active, ...archived]);
+  renderCursos();
+  toast("Ordenado por fecha", "accent");
+}
+
+function archiveCurso(id) {
+  const list = getCursos();
+  const c = list.find(x=>x.id===id);
+  if (!c) return;
+  c.archived = true;
+  c.archivedAt = new Date().toISOString();
+  saveCursos(list);
   if (CURRENT_CURSO_ID===id) { CURRENT_CURSO_ID=null; STATE.students=[]; STATE.grid=buildEmptyGrid(); }
   renderCursos();
-  toast("🗑 Curso eliminado","red");
+  toast("📦 Curso archivado","accent");
 }
+
+function unarchiveCurso(id) {
+  const list = getCursos();
+  const c = list.find(x=>x.id===id);
+  if (!c) return;
+  delete c.archived;
+  delete c.archivedAt;
+  saveCursos(list);
+  renderCursos();
+  toast("📂 Curso restaurado","green");
+}
+
 function goToPrefs() {
   saveState(); showScreen("prefs");
 }
