@@ -3248,7 +3248,7 @@ function printSeatingChart(simpleMode) {
   if (simpleMode) {
     // ── Modo simple: reconstruir grid con solo número + nombre ──
     const tempGrid = document.createElement("div");
-    tempGrid.style.cssText = "display:flex;flex-direction:row;gap:5px;align-items:flex-end;width:100%;flex:1;min-height:0;";
+    tempGrid.style.cssText = "display:flex;flex-direction:row;gap:5px;align-items:flex-start;width:100%;flex:1;min-height:0;";
 
     for (let col = 0; col < NUM_COLS; col++) {
       const colDiv = document.createElement("div");
