@@ -3247,10 +3247,7 @@ function printSeatingChart() {
     ▌   P I Z A R R Ó N   —   D O C E N T E   ▐
   </div>
 </div>
-<div id="hint" style="position:fixed;bottom:0;left:0;right:0;background:rgba(31,111,235,.92);color:white;text-align:center;padding:8px;font-family:Arial;font-size:12px;font-weight:700;z-index:9999;backdrop-filter:blur(4px);">
-  ⚠️ En el diálogo de impresión despliega <strong>"Más ajustes"</strong> y desactiva <strong>"Encabezados y pies de página"</strong>
-</div>
-<script>window.onload=function(){ window.print(); setTimeout(function(){ var h=document.getElementById("hint"); if(h) h.style.display="none"; },500); }<\/script>
+<script>window.onload=function(){ window.print(); }<\/script>
 </body></html>`;
 
   const pw = window.open("","_blank");
