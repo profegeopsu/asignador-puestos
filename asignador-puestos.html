@@ -2069,7 +2069,7 @@ function buildSeatEl(col,row) {
     el.addEventListener("mouseleave", ()=>hideTooltip());
 
     // ── LAYOUT: número grande izquierda | info derecha ──
-    el.style.cssText=(el.style.cssText||"")+"display:flex;flex-direction:row;align-items:stretch;padding:0;overflow:hidden;height:88px;min-height:88px;max-height:88px;";
+    el.style.cssText=(el.style.cssText||"")+"display:flex;flex-direction:row;align-items:stretch;padding:0;overflow:hidden;height:96px;min-height:96px;max-height:96px;";
     el.dataset.studentId=s.id;
 
     // ── COLUMNA IZQUIERDA: número + género ──
@@ -2084,11 +2084,11 @@ function buildSeatEl(col,row) {
     ].join(";");
     // Número grande
     const numEl=document.createElement("div");
-    numEl.style.cssText="font-size:20px;font-weight:900;color:var(--accent);font-family:var(--mono);line-height:1;text-align:center;";
+    numEl.style.cssText="font-size:22px;font-weight:900;color:var(--accent);font-family:var(--mono);line-height:1;text-align:center;";
     numEl.textContent=s.id;
     // Género
     const gdSmall=document.createElement("div");
-    gdSmall.style.cssText="font-size:9px;font-weight:800;line-height:1;";
+    gdSmall.style.cssText="font-size:10px;font-weight:800;line-height:1;";
     gdSmall.style.color=GENDER_CLR[s.gender]||"var(--muted)";
     gdSmall.textContent=s.gender;
     // Icontitos NEE
@@ -2113,14 +2113,14 @@ function buildSeatEl(col,row) {
     const lastName=nameParts.slice(1).join(" ")||"";
 
     const nmFirst=document.createElement("div");
-    nmFirst.style.cssText="font-size:11px;font-weight:800;color:var(--text);line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    nmFirst.style.cssText="font-size:13px;font-weight:800;color:var(--text);line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
     nmFirst.textContent=firstName;
     nmFirst.title=fullName;
     infoCol.appendChild(nmFirst);
 
     if (lastName) {
       const nmLast=document.createElement("div");
-      nmLast.style.cssText="font-size:10px;font-weight:600;color:var(--muted);line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:-1px;";
+      nmLast.style.cssText="font-size:12px;font-weight:600;color:var(--muted);line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:-1px;";
       nmLast.textContent=lastName;
       infoCol.appendChild(nmLast);
     }
@@ -2128,7 +2128,7 @@ function buildSeatEl(col,row) {
     // Diagnóstico NEE
     if (s.diagnosis!=="—") {
       const dg=document.createElement("div");
-      dg.style.cssText="font-size:8px;font-weight:700;color:var(--violet);line-height:1;padding:1px 4px;background:rgba(188,140,255,.12);border-radius:3px;display:inline-block;width:fit-content;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+      dg.style.cssText="font-size:9px;font-weight:700;color:var(--violet);line-height:1;padding:1px 4px;background:rgba(188,140,255,.12);border-radius:3px;display:inline-block;width:fit-content;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
       dg.textContent=s.diagnosis;
       infoCol.appendChild(dg);
     }
@@ -2138,7 +2138,7 @@ function buildSeatEl(col,row) {
       const prom=document.createElement("div");
       const pval=parseFloat(s.promedio);
       const pcol=pval>=5.5?"#3fb950":pval>=4?"#e3b341":"#f85149";
-      prom.style.cssText="font-size:8px;font-weight:700;color:"+pcol+";line-height:1;";
+      prom.style.cssText="font-size:10px;font-weight:700;color:"+pcol+";line-height:1;";
       prom.textContent="Prom: "+pval.toFixed(1);
       infoCol.appendChild(prom);
     }
@@ -2146,7 +2146,7 @@ function buildSeatEl(col,row) {
     // Nota del alumno
     if (s.notes) {
       const nt=document.createElement("div");
-      nt.style.cssText="font-size:8px;color:var(--muted);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;";
+      nt.style.cssText="font-size:9px;color:var(--muted);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;";
       nt.textContent="📝 "+s.notes;
       infoCol.appendChild(nt);
     }
@@ -3088,99 +3088,93 @@ function printSeatingChart() {
   const curso  = cursos.find(c=>c.id===CURRENT_CURSO_ID)||{nombre:"Curso",nivel:""};
   const titulo = `Mapa-${(curso.nombre||"Asientos").replace(/\s+/g,"-")}-${now.toISOString().slice(0,10)}`;
 
-  // ── Generar HTML de la grilla con estilos 100% inline ──────────────
-  const PERF_BG_P  = {"Alto":"#e6f4ea","Medio":"#fff","Bajo mat.":"#fff8e6","Bajo gral.":"#fdecea","—":"#fff"};
-  const PERF_DOT_P = {"Alto":"#2da44e","Medio":"#58a6ff","Bajo mat.":"#e3b341","Bajo gral.":"#f85149","—":"#888"};
-  const PART_W_P   = {"Alta":"100%","Media":"55%","Baja":"22%"};
-  const PART_C_P   = {"Alta":"#2da44e","Media":"#e3b341","Baja":"#f85149"};
-  const GENDER_C_P = {"M":"#58a6ff","F":"#f778ba","O":"#d2a8ff"};
+  // Clonar el grid real tal como se ve en pantalla
+  const srcGrid = document.getElementById("seat-grid");
+  if (!srcGrid) { alert("Genera el mapa primero"); return; }
+  const gridClone = srcGrid.cloneNode(true);
 
-  const colOrder = [5,4,3,2,1,0]; // izquierda=col6, derecha=col1
-
-  let colsHtml = "";
-  for (const col of colOrder) {
-    const colNum = col+1;
-    const size = COL_SIZES[col];
-    let seatsHtml = "";
-    for (let row=0; row<size; row++) {
-      const id = STATE.grid[col]?.[row];
-      const s  = id ? getById(id) : null;
-      if (s) {
-        const parts = (s.name||`Alumno ${s.id}`).trim().split(" ");
-        const firstName = parts[0]||"";
-        const lastName  = parts.slice(1).join(" ")||"";
-        const num = String(s.id).padStart(2,"0");
-        const bg  = PERF_BG_P[s.performance]||"#fff";
-        const dot = PERF_DOT_P[s.performance]||"#888";
-        const partW = PART_W_P[s.participation]||"55%";
-        const partC = PART_C_P[s.participation]||"#888";
-        const gColor= GENDER_C_P[s.gender]||"#888";
-        const diagHtml = s.diagnosis&&s.diagnosis!=="—"
-          ? `<div style="font-size:7px;color:#7c3aed;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.diagnosis}</div>` : "";
-        const notesHtml= s.notes
-          ? `<div style="font-size:7px;color:#888;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📝 ${s.notes}</div>` : "";
-        const tutorHtml= s.isTutor ? `<span style="color:#2da44e;font-size:9px;">★</span>` : "";
-        seatsHtml += `
-          <div style="display:flex;flex-direction:row;align-items:stretch;border:1.5px solid #999;border-radius:5px;background:${bg};overflow:hidden;flex:1;">
-            <div style="min-width:28px;width:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #ddd;padding:3px 2px;gap:1px;flex-shrink:0;">
-              <div style="font-size:18px;font-weight:900;color:#1f6feb;font-family:Arial;line-height:1;">${num}</div>
-              <div style="font-size:8px;font-weight:800;color:${gColor};line-height:1;">${s.gender}</div>
-            </div>
-            <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:4px 5px 3px;gap:1px;">
-              <div style="font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${firstName}</div>
-              <div style="font-size:10px;font-weight:400;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lastName}</div>
-              ${diagHtml}${notesHtml}
-              <div style="display:flex;align-items:center;gap:3px;margin-top:auto;padding-top:2px;">
-                <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block;"></span>
-                <div style="flex:1;height:3px;background:#eee;border-radius:2px;position:relative;">
-                  <div style="position:absolute;left:0;top:0;height:100%;width:${partW};background:${partC};border-radius:2px;"></div>
-                </div>
-                ${tutorHtml}
-              </div>
-            </div>
-          </div>`;
-      } else {
-        seatsHtml += `<div style="flex:1;border:1.5px dashed #ccc;border-radius:5px;background:#fafafa;"></div>`;
+  // Recolectar todos los estilos computados relevantes del DOM
+  // Serializar el grid como HTML inline para la ventana nueva
+  function inlineStyles(el) {
+    if (el.nodeType !== 1) return;
+    const cs = window.getComputedStyle(el);
+    // Solo propiedades clave para layout y apariencia
+    const props = [
+      "display","flex-direction","flex-wrap","flex","flex-grow","flex-shrink","flex-basis",
+      "align-items","align-self","justify-content","gap","width","height","min-height","max-height",
+      "min-width","max-width","padding","padding-top","padding-right","padding-bottom","padding-left",
+      "margin","margin-top","border","border-top","border-right","border-bottom","border-left",
+      "border-radius","border-color","border-width","border-style",
+      "background","background-color","color","font-size","font-weight","font-family",
+      "line-height","white-space","overflow","text-overflow","position","top","right","bottom","left",
+      "z-index","box-sizing","letter-spacing","text-align","opacity","transform-origin"
+    ];
+    let style = "";
+    for (const p of props) {
+      const v = cs.getPropertyValue(p);
+      if (v && v !== "initial" && v !== "normal" && v !== "none" && v !== "auto" && v !== "0px" && v !== "rgba(0, 0, 0, 0)" && v !== "transparent") {
+        style += `${p}:${v};`;
       }
     }
-    colsHtml += `
-      <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;">
-        ${seatsHtml}
-        <div style="font-size:9px;font-weight:900;text-align:center;border-top:1.5px solid #000;padding-top:3px;margin-top:2px;letter-spacing:.06em;">COL ${colNum}</div>
-      </div>`;
+    // Always force box-sizing
+    style += "box-sizing:border-box;";
+    el.setAttribute("style", style);
+    for (const child of el.children) inlineStyles(child);
+  }
+  inlineStyles(gridClone);
+
+  // Forzar layout del grid contenedor
+  gridClone.style.cssText = "display:flex;flex-direction:row;gap:6px;width:100%;align-items:flex-end;box-sizing:border-box;";
+
+  // Cada col-div: flex:1
+  for (const col of gridClone.children) {
+    col.style.cssText = (col.style.cssText||"") + "flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;";
   }
 
   const html = `<!DOCTYPE html><html lang="es"><head>
 <meta charset="utf-8"><title>${titulo}</title>
 <style>
-  @page { size: letter landscape; margin: 8mm 10mm; }
-  * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  html,body { margin:0; padding:0; width:100%; height:100%; font-family:Arial,sans-serif; background:white; }
+  @page { size: letter landscape; margin: 6mm 8mm; }
+  * { box-sizing:border-box !important; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  html,body { margin:0; padding:0; width:100%; height:100%; font-family:Arial,sans-serif; background:white; color:#000; }
   #wrap { width:100%; height:100vh; display:flex; flex-direction:column; }
-  #grid { display:flex; flex-direction:row; gap:6px; flex:1; align-items:stretch; }
+  #grid-area { flex:1; display:flex; flex-direction:row; gap:6px; align-items:flex-end; min-height:0; overflow:hidden; }
+  /* Colores inline reemplazando CSS vars */
+  [style*="var(--text)"]    { color:#000 !important; }
+  [style*="var(--muted)"]   { color:#555 !important; }
+  [style*="var(--accent)"]  { color:#1f6feb !important; }
+  [style*="var(--violet)"]  { color:#7c3aed !important; }
+  [style*="var(--border)"]  { border-color:#d0d7de !important; }
+  [style*="var(--border2)"] { border-color:#aaa !important; }
+  [style*="var(--surface)"] { background:#f6f8fa !important; }
+  [style*="var(--mono)"]    { font-family:monospace !important; }
+  /* Asientos */
+  .seat, .occupied { border-radius:8px !important; overflow:hidden !important; }
+  .empty-cell { border:2px dashed #ccc !important; background:#fafafa !important; border-radius:8px !important; }
+  .seat-dot { border-radius:50% !important; display:inline-block !important; width:8px !important; height:8px !important; flex-shrink:0 !important; }
+  .part-bar { height:4px !important; background:#e0e0e0 !important; border-radius:2px !important; flex:1 !important; position:relative !important; overflow:hidden !important; }
+  .part-fill { position:absolute !important; left:0 !important; top:0 !important; height:100% !important; border-radius:2px !important; }
 </style>
 </head><body>
 <div id="wrap">
-  <div style="padding:8px 10px 6px;border-bottom:2px solid #000;display:flex;justify-content:space-between;align-items:flex-end;flex-shrink:0;">
+  <div style="padding:6px 10px 5px;border-bottom:2px solid #000;display:flex;justify-content:space-between;align-items:flex-end;flex-shrink:0;">
     <div>
-      <div style="font-size:18px;font-weight:900;line-height:1;">MAPA DE ASIENTOS</div>
-      <div style="font-size:11px;font-weight:700;color:#333;margin-top:2px;">${curso.nombre}${curso.nivel?" · "+curso.nivel:""}</div>
+      <div style="font-size:16px;font-weight:900;line-height:1;">MAPA DE ASIENTOS</div>
+      <div style="font-size:10px;font-weight:700;color:#333;margin-top:2px;">${curso.nombre}${curso.nivel?" · "+curso.nivel:""}</div>
     </div>
-    <div style="text-align:right;font-size:9px;color:#555;line-height:1.6;">
+    <div style="text-align:right;font-size:8px;color:#555;line-height:1.6;">
       <div style="font-weight:700;text-transform:capitalize;">${dateStr}</div>
       <div>Libro de Clases · Distribución de puestos</div>
     </div>
   </div>
-  <div style="font-size:8px;color:#666;padding:4px 10px;display:flex;gap:16px;flex-shrink:0;border-bottom:1px solid #eee;">
+  <div style="font-size:7px;color:#777;padding:3px 10px;display:flex;gap:16px;flex-shrink:0;border-bottom:1px solid #eee;">
     <span>● COL 1 (derecha) → COL 6 (izquierda)</span>
-    <span>● Fila superior: lejos pizarra</span>
-    <span>● Fila inferior: cerca pizarra</span>
+    <span>● Fila superior: lejos pizarra · Fila inferior: cerca pizarra</span>
   </div>
-  <div id="grid">${colsHtml}</div>
-  <div style="background:#111;color:white;text-align:center;padding:5px;font-size:10px;font-weight:900;letter-spacing:.25em;flex-shrink:0;">▌   P I Z A R R Ó N   —   D O C E N T E   ▐</div>
-  <div style="padding:3px 10px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:7px;color:#999;flex-shrink:0;">
-    <span>AsignadorPuestos · uso interno</span>
-    <span>Impreso: ${now.toLocaleString("es-CL")}</span>
+  <div id="grid-area">${gridClone.outerHTML}</div>
+  <div style="background:#111;color:white;text-align:center;padding:4px;font-size:9px;font-weight:900;letter-spacing:.2em;flex-shrink:0;">▌   P I Z A R R Ó N   —   D O C E N T E   ▐</div>
+  <div style="padding:2px 10px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:6px;color:#aaa;flex-shrink:0;">
+    <span>AsignadorPuestos · uso interno</span><span>Impreso: ${now.toLocaleString("es-CL")}</span>
   </div>
 </div>
 </body></html>`;
@@ -3190,7 +3184,7 @@ function printSeatingChart() {
   pw.document.write(html);
   pw.document.close();
   pw.focus();
-  setTimeout(()=>{ pw.print(); }, 600);
+  setTimeout(()=>{ pw.print(); }, 800);
 }
 
 
