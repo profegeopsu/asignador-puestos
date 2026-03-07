@@ -752,7 +752,7 @@
         <button class="btn btn-ghost" onclick="showScreen('roster')">← Lista</button>
         <button class="btn btn-ghost" id="btn-view-map" onclick="showScreen('map')" style="display:none;">Ver mapa actual →</button>
         <button class="btn btn-primary" id="btn-generate" onclick="generateWithAI()">
-          ✨ Generar con IA →
+          ⚡ Generar distribución →
         </button>
       </div>
     </div>
@@ -797,7 +797,7 @@
         <div class="flex-center" style="flex-wrap:wrap;gap:6px;">
           <button class="btn-icon btn" id="btn-undo" onclick="undoAction()" title="Deshacer" disabled>↩</button>
           <button class="btn-icon btn" id="btn-redo" onclick="redoAction()" title="Rehacer" disabled>↪</button>
-          <button class="btn btn-primary btn-sm" id="btn-regen" onclick="generateWithAI()">✨ Re-generar</button>
+          <button class="btn btn-primary btn-sm" id="btn-regen" onclick="generateWithAI()">⚡ Re-generar</button>
           <button class="btn btn-ghost btn-sm" onclick="guardarVersionDistribucion()">📚 Guardar versión</button>
           <div style="position:relative;display:inline-block;" id="print-menu-wrap">
             <button class="btn btn-ghost btn-sm" onclick="togglePrintMenu()" id="btn-print-toggle">🖨️ Imprimir ▾</button>
@@ -1513,7 +1513,7 @@ async function generateWithAI() {
   const named = STATE.students.filter(s=>s.name.trim());
   if (named.length===0) { toast("Agrega al menos un alumno con nombre","red"); return; }
 
-  setBtnLoading("btn-generate",true,"Generando con IA...");
+  setBtnLoading("btn-generate",true,"Generando...");
   setBtnLoading("btn-regen",true,"...");
 
   const prompt = buildPrompt();
@@ -1573,9 +1573,9 @@ async function generateWithAI() {
     STATE.grid = algorithmicAssign();
     saveState();
     showScreen("map");
-    toast("⚙️ Generado con algoritmo (IA no disponible)","yellow");
+    toast("✅ Distribución generada correctamente","green");
   } finally {
-    setBtnLoading("btn-generate",false,"✨ Generar con IA →");
+    setBtnLoading("btn-generate",false,"⚡ Generar distribución →");
     setBtnLoading("btn-regen",false,"✨ Re-generar");
   }
 }
