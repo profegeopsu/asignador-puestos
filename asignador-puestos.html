@@ -932,7 +932,7 @@
 // grid[col][row]: col 0=izq, col 5=der; row 0=lejos pizarra (arriba), row max=cerca pizarra (abajo).
 const COL_SIZES  = [6, 6, 7, 7, 6, 6];
 const NUM_COLS   = 6;
-const APP_VERSION = { date: "2026-03-07", time: "14:43", label: "v2.6" };
+const APP_VERSION = { date: "2026-03-07", time: "14:54", label: "v2.6" };
 const MAX_ROWS   = 7;
 // Alias para compatibilidad con código existente
 const ROW_SIZES  = COL_SIZES;
@@ -3097,8 +3097,21 @@ document.addEventListener("DOMContentLoaded",()=>{
   // Poblar info de versión
   const _vd = document.getElementById("info-version-date");
   const _vl = document.getElementById("info-version-label");
-  if (_vd) _vd.textContent = APP_VERSION.date + " · " + APP_VERSION.time + " hrs";
   if (_vl) _vl.textContent = APP_VERSION.label;
+  // Obtener fecha real del archivo desde el servidor (Last-Modified header)
+  fetch(location.href, {method:"HEAD", cache:"no-cache"})
+    .then(r => {
+      const lm = r.headers.get("Last-Modified") || r.headers.get("last-modified");
+      if (lm && _vd) {
+        const d = new Date(lm);
+        const fecha = d.toLocaleDateString("es-CL",{year:"numeric",month:"2-digit",day:"2-digit"});
+        const hora  = d.toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"});
+        _vd.textContent = fecha + " · " + hora + " hrs";
+      } else if (_vd) {
+        _vd.textContent = APP_VERSION.date + " · " + APP_VERSION.time + " hrs";
+      }
+    })
+    .catch(() => { if (_vd) _vd.textContent = APP_VERSION.date + " · " + APP_VERSION.time + " hrs"; });
   loadState();
   // Load GIS library for OAuth
   const _gis=document.createElement('script'); _gis.src='https://accounts.google.com/gsi/client'; _gis.async=true; document.head.appendChild(_gis);
@@ -3166,60 +3179,36 @@ function printSeatingChart() {
   clone.style.cssText = "display:flex;flex-direction:row;gap:5px;align-items:flex-end;width:100%;flex:1;min-height:0;";
   const gridHTML = clone.outerHTML;
 
-  // Carta portrait px a 96dpi: 816 x 1056
-  // Rotado -90°: el contenido ocupa 1056 ancho x 816 alto
-  // Para centrar con transform-origin:center center en la hoja:
-  //   translateX( (816-1056)/2 ) translateY( (1056-816)/2 ) rotate(-90deg)
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
-  @page { size: letter portrait; margin: 0; }
+  @page { size: letter landscape; margin: 10mm; }
   * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  html, body { margin:0; padding:0; width:816px; height:1056px; overflow:hidden; background:white; }
-  #page {
-    width: 816px; height: 1056px;
-    position: relative; overflow: hidden;
-    display: flex; align-items: center; justify-content: center;
-  }
-  #rotated {
-    width: 1036px;
-    height: 796px;
-    transform: rotate(-90deg);
-    transform-origin: center center;
-    display: flex;
-    flex-direction: column;
-    padding: 10px 12px 8px;
-    font-family: Arial, sans-serif;
-    color: #000;
-    background: white;
-    gap: 5px;
-    flex-shrink: 0;
-  }
-  #grid-area { display:flex; flex-direction:row; gap:5px; align-items:flex-end; flex:1; min-height:0; overflow:hidden; }
+  html, body { margin:0; padding:0; background:white; font-family:Arial,sans-serif; color:#000; }
+  #wrap { width:100%; min-height:100vh; display:flex; flex-direction:column; padding:10px 12px 8px; gap:6px; }
+  #grid-area { display:flex; flex-direction:row; gap:5px; align-items:flex-end; flex:1; }
   .seat-dot  { border-radius:50% !important; display:inline-block !important; }
   .part-bar  { position:relative !important; overflow:hidden !important; }
   .part-fill { position:absolute !important; left:0 !important; top:0 !important; height:100% !important; }
 </style>
 </head><body>
-<div id="page">
-  <div id="rotated">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:4px;flex-shrink:0;">
-      <div>
-        <div style="font-size:15px;font-weight:900;">${curso.nombre}${curso.nivel?" · "+curso.nivel:""}</div>
-        <div style="font-size:9px;color:#555;">MAPA DE ASIENTOS · Libro de Clases</div>
-      </div>
-      <div style="font-size:8px;color:#555;text-align:right;line-height:1.5;">
-        <div style="font-weight:700;text-transform:capitalize;">${dateStr}</div>
-        <div>Impreso: ${now.toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})} hrs</div>
-      </div>
+<div id="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:4px;flex-shrink:0;">
+    <div>
+      <div style="font-size:15px;font-weight:900;">${curso.nombre}${curso.nivel?" · "+curso.nivel:""}</div>
+      <div style="font-size:9px;color:#555;">MAPA DE ASIENTOS · Libro de Clases</div>
     </div>
-    <div id="grid-area">${gridHTML}</div>
-    <div style="background:#111;color:white;text-align:center;padding:4px;font-size:9px;font-weight:900;letter-spacing:.2em;flex-shrink:0;border-radius:4px;">
-      ▌   P I Z A R R Ó N   —   D O C E N T E   ▐
+    <div style="font-size:8px;color:#555;text-align:right;line-height:1.5;">
+      <div style="font-weight:700;text-transform:capitalize;">${dateStr}</div>
+      <div>Impreso: ${now.toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})} hrs</div>
     </div>
+  </div>
+  <div id="grid-area">${gridHTML}</div>
+  <div style="background:#111;color:white;text-align:center;padding:4px;font-size:9px;font-weight:900;letter-spacing:.2em;border-radius:4px;flex-shrink:0;">
+    ▌   P I Z A R R Ó N   —   D O C E N T E   ▐
   </div>
 </div>
 <script>window.onload=function(){ window.print(); }<\/script>
-</body></html>\`;
+</body></html>`;
 
   const pw = window.open("","_blank");
   if (!pw) { alert("Permite ventanas emergentes para imprimir"); return; }
