@@ -1244,14 +1244,15 @@ function mkStudent(overrides={}) {
   return { id:_idCounter++, name:"", gender:"M", diagnosis:"—", performance:"Medio",
            participation:"Media", promedio:null, isTutor:false, conflict:"—",
            visual:false, hearing:false, frontRow:false,
-           preferredWith:[], avoidWith:[], notes:"", grupoSep:"", ...overrides };
+           preferredWith:[], avoidWith:[], notes:"", grupoSep:"", listNumber:null, ...overrides };
 }
 function initDefaultStudents() {
-  STATE.students = Array.from({length:38},(_,i)=>mkStudent({id:i+1,name:"Alumno "+(i+1)}));
+  STATE.students = Array.from({length:38},(_,i)=>mkStudent({id:i+1,name:"Alumno "+(i+1),listNumber:i+1}));
   _idCounter = 39;
 }
 function addStudent() {
-  STATE.students.push(mkStudent());
+  const maxNum = STATE.students.reduce((m,s)=>Math.max(m, s.listNumber||0), 0);
+  STATE.students.push(mkStudent({ listNumber: maxNum + 1 }));
   saveState(); renderRoster();
 }
 function removeStudent(id) {
@@ -1768,7 +1769,11 @@ function renderRoster() {
 
   tbody.innerHTML = STATE.students.map((s,i)=>`
     <tr id="row-${s.id}">
-      <td><span class="id-mono">${s.id}</span></td>
+      <td><input type="number" min="1" max="99" value="${s.listNumber ?? (i+1)}"
+          style="width:44px;text-align:center;font-weight:800;font-size:13px;color:var(--accent);background:transparent;border:1px solid transparent;border-radius:6px;padding:2px 0;"
+          onchange="updateStudent(${s.id},'listNumber',+this.value)"
+          onfocus="this.style.borderColor='var(--accent)'"
+          onblur="this.style.borderColor='transparent'"></td>
       <td><input type="text" style="width:130px" value="${esc(s.name)}" placeholder="Alumno ${s.id}"
           oninput="updateStudent(${s.id},'name',this.value)"></td>
       <td>
@@ -2757,7 +2762,7 @@ function executePasteImport() {
         promedio: r.promedio,
         isTutor: false, conflict: "—",
         visual: false, hearing: false, frontRow: false,
-        grupoSep: null, notes: "", listNumber: r.num ?? (STATE.students.length + 1)
+        grupoSep: null, notes: "", listNumber: r.num ?? (i + 1)
       });
       added++;
     }
