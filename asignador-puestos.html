@@ -1127,10 +1127,9 @@ function loadCurso(id) {
     STATE.grid     = data.grid     || buildEmptyGrid();
     STATE.locked   = data.locked   || [];
     if (STATE.students.length) _idCounter = Math.max(...STATE.students.map(x=>x.id))+1;
-    else initDefaultStudents();
     if (!STATE.grid.length) STATE.grid = buildEmptyGrid();
   } else {
-    initDefaultStudents();
+    STATE.students = [];
     STATE.grid = buildEmptyGrid();
     STATE.locked = [];
   }
