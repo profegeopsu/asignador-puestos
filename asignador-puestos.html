@@ -452,6 +452,26 @@
     z-index: 10;
     position: relative;
   }
+  /* ── TOOLBAR COLAPSABLE ── */
+  #map-toolbar {
+    transition: all .22s ease;
+    overflow: hidden;
+  }
+  #map-toolbar.collapsed {
+    max-height: 0 !important;
+    margin: 0 !important;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #toolbar-toggle {
+    position: absolute; right: 0; top: 0;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--surface2); border: 1px solid var(--border2);
+    color: var(--muted); font-size: 11px; font-weight: 900;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: .2s; z-index: 5; flex-shrink: 0;
+  }
+  #toolbar-toggle:hover { background: var(--surface); color: var(--text); }
   /* ── INFO BADGE ── */
   .info-badge {
     display:inline-flex; align-items:center; justify-content:center;
@@ -717,51 +737,55 @@
 
   <!-- SCREEN 3: MAP -->
   <div class="screen" id="screen-map" style="max-width:100%;">
-    <div class="flex-between" style="margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <button class="btn btn-ghost btn-sm" onclick="showScreen('prefs')">← Preferencias</button>
-        <div>
-          <h2 style="font-size:20px; font-weight:800; letter-spacing:-.02em;">Mapa de Asientos</h2>
-          <p style="font-size:11px; color:var(--muted);">8vo Básico · <span id="map-count"></span> alumnos distribuidos</p>
-        </div>
+
+    <!-- Franja siempre visible: título + botón colapso -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;position:relative;">
+      <button class="btn btn-ghost btn-sm" onclick="showScreen('prefs')">← Preferencias</button>
+      <div style="flex:1;min-width:0;">
+        <h2 style="font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1;">Mapa de Asientos</h2>
+        <p style="font-size:11px;color:var(--muted);margin:0;">8vo Básico · <span id="map-count"></span> alumnos distribuidos</p>
       </div>
-      <div class="flex-center" style="flex-wrap:wrap; gap:6px;">
+      <button id="toolbar-toggle" onclick="toggleMapToolbar()" title="Mostrar/ocultar barra">▲</button>
+    </div>
+
+    <!-- Toolbar colapsable -->
+    <div id="map-toolbar" style="max-height:200px;margin-bottom:10px;">
+      <div class="flex-between" style="flex-wrap:wrap;gap:6px;margin-bottom:8px;">
         <div class="tab-bar" id="view-tabs">
           <button class="tab-btn active" data-view="teacher" onclick="setView('teacher')">👁 Profesor</button>
           <button class="tab-btn" data-view="student" onclick="setView('student')">📋 Alumno</button>
           <button class="tab-btn" data-view="heatmap" onclick="setView('heatmap')">🔥 Heatmap</button>
         </div>
-        <button class="btn-icon btn" id="btn-undo" onclick="undoAction()" title="Deshacer" disabled>↩</button>
-        <button class="btn-icon btn" id="btn-redo" onclick="redoAction()" title="Rehacer" disabled>↪</button>
-        <button class="btn btn-primary btn-sm" id="btn-regen" onclick="generateWithAI()">✨ Re-generar</button>
-        <button class="btn btn-ghost btn-sm" onclick="guardarVersionDistribucion()" title="Guardar versión del mapa">📚 Guardar versión</button>
-        <button class="btn btn-ghost btn-sm" onclick="printSeatingChart()" title="Imprimir mapa para libro de clases">🖨️ Imprimir</button>
-        <div style="display:flex;align-items:center;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:2px;">
-          <button class="btn-icon btn" onclick="zoomMap(-1)" title="Reducir">−</button>
-          <span id="zoom-label" style="font-size:10px;font-weight:800;color:var(--muted);min-width:34px;text-align:center;font-family:var(--mono);">100%</span>
-          <button class="btn-icon btn" onclick="zoomMap(1)"  title="Ampliar">+</button>
+        <div class="flex-center" style="flex-wrap:wrap;gap:6px;">
+          <button class="btn-icon btn" id="btn-undo" onclick="undoAction()" title="Deshacer" disabled>↩</button>
+          <button class="btn-icon btn" id="btn-redo" onclick="redoAction()" title="Rehacer" disabled>↪</button>
+          <button class="btn btn-primary btn-sm" id="btn-regen" onclick="generateWithAI()">✨ Re-generar</button>
+          <button class="btn btn-ghost btn-sm" onclick="guardarVersionDistribucion()">📚 Guardar versión</button>
+          <button class="btn btn-ghost btn-sm" onclick="printSeatingChart()">🖨️ Imprimir</button>
+          <div style="display:flex;align-items:center;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:2px;">
+            <button class="btn-icon btn" onclick="zoomMap(-1)">−</button>
+            <span id="zoom-label" style="font-size:10px;font-weight:800;color:var(--muted);min-width:34px;text-align:center;font-family:var(--mono);">100%</span>
+            <button class="btn-icon btn" onclick="zoomMap(1)">+</button>
+          </div>
         </div>
       </div>
-    </div>
-
-    <!-- warnings -->
-    <div id="warnings-bar" style="display:none" class="warn-bar"></div>
-    <div id="sync-bar" style="display:none" class="sync-bar"><span class="sync-dot"></span><span id="sync-msg"></span></div>
-
-    <!-- stats + controls -->
-    <div class="flex-between" style="margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-      <div class="stats-row" id="map-stats" style="margin-bottom:0"></div>
-      <div id="map-controls" class="flex-center" style="flex-wrap:wrap; gap:6px;"></div>
-    </div>
-
-    <!-- heatmap var selector -->
-    <div id="heatmap-controls" style="display:none; margin-bottom:10px;" class="flex-center">
-      <span style="font-size:10px; font-weight:800; color:var(--muted); letter-spacing:.07em; text-transform:uppercase;">Variable:</span>
-      <div class="tab-bar">
-        <button class="tab-btn active" data-hv="performance"   onclick="setHeatVar('performance')">Rendimiento</button>
-        <button class="tab-btn"        data-hv="participation" onclick="setHeatVar('participation')">Participación</button>
-        <button class="tab-btn"        data-hv="gender"        onclick="setHeatVar('gender')">Género</button>
-        <button class="tab-btn"        data-hv="conflict"      onclick="setHeatVar('conflict')">Conflicto</button>
+      <!-- warnings -->
+      <div id="warnings-bar" style="display:none" class="warn-bar"></div>
+      <div id="sync-bar" style="display:none" class="sync-bar"><span class="sync-dot"></span><span id="sync-msg"></span></div>
+      <!-- stats + controls -->
+      <div class="flex-between" style="flex-wrap:wrap;gap:8px;">
+        <div class="stats-row" id="map-stats" style="margin-bottom:0"></div>
+        <div id="map-controls" class="flex-center" style="flex-wrap:wrap;gap:6px;"></div>
+      </div>
+      <!-- heatmap var selector -->
+      <div id="heatmap-controls" style="display:none;margin-top:6px;" class="flex-center">
+        <span style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;">Variable:</span>
+        <div class="tab-bar">
+          <button class="tab-btn active" data-hv="performance"   onclick="setHeatVar('performance')">Rendimiento</button>
+          <button class="tab-btn"        data-hv="participation" onclick="setHeatVar('participation')">Participación</button>
+          <button class="tab-btn"        data-hv="gender"        onclick="setHeatVar('gender')">Género</button>
+          <button class="tab-btn"        data-hv="conflict"      onclick="setHeatVar('conflict')">Conflicto</button>
+        </div>
       </div>
     </div>
 
@@ -2723,6 +2747,16 @@ function flashStudents(idA, idB) {
 // ═══════════════════════════════════════════════════════════════════
 let _sidePanelOpen = true;
 
+
+function toggleMapToolbar() {
+  const tb  = document.getElementById("map-toolbar");
+  const btn = document.getElementById("toolbar-toggle");
+  const collapsed = tb.classList.toggle("collapsed");
+  btn.textContent = collapsed ? "▼" : "▲";
+  btn.title = collapsed ? "Mostrar barra" : "Ocultar barra";
+  setTimeout(autoFitZoom, 280);
+}
+
 function toggleSidePanel() {
   _sidePanelOpen = !_sidePanelOpen;
   const panel = document.getElementById("side-panel");
@@ -3213,10 +3247,10 @@ function printSeatingChart() {
     ▌   P I Z A R R Ó N   —   D O C E N T E   ▐
   </div>
 </div>
-<div id="hint" style="position:fixed;top:0;left:0;right:0;background:#1f6feb;color:white;text-align:center;padding:10px;font-family:Arial;font-size:13px;font-weight:700;z-index:9999;">
-  ⚠️ Antes de imprimir: en el diálogo, despliega <strong>"Más ajustes"</strong> y desactiva <strong>"Encabezados y pies de página"</strong>
+<div id="hint" style="position:fixed;bottom:0;left:0;right:0;background:rgba(31,111,235,.92);color:white;text-align:center;padding:8px;font-family:Arial;font-size:12px;font-weight:700;z-index:9999;backdrop-filter:blur(4px);">
+  ⚠️ En el diálogo de impresión despliega <strong>"Más ajustes"</strong> y desactiva <strong>"Encabezados y pies de página"</strong>
 </div>
-<script>window.onload=function(){ window.print(); document.getElementById("hint").style.display="none"; }<\/script>
+<script>window.onload=function(){ window.print(); setTimeout(function(){ var h=document.getElementById("hint"); if(h) h.style.display="none"; },500); }<\/script>
 </body></html>`;
 
   const pw = window.open("","_blank");
