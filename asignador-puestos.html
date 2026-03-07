@@ -2280,7 +2280,7 @@ function setView(v) {
     if (!overlay) {
       overlay=document.createElement("div");
       overlay.id="student-overlay";
-      overlay.style.cssText="position:fixed;inset:0;background:#07090f;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;";
+      overlay.style.cssText="position:fixed;inset:0;background:#07090f;z-index:500;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;padding:0;overflow:hidden;";
       // Close button
       const closeBtn=document.createElement("button");
       closeBtn.textContent="✕ Salir de vista alumno";
@@ -2289,13 +2289,13 @@ function setView(v) {
       overlay.appendChild(closeBtn);
       // Title
       const title=document.createElement("div");
-      title.style.cssText="font-size:11px;font-weight:800;letter-spacing:.15em;color:#484f58;text-transform:uppercase;margin-bottom:16px;";
+      title.style.cssText="font-size:11px;font-weight:800;letter-spacing:.15em;color:#484f58;text-transform:uppercase;padding:8px 16px 0;text-align:center;flex-shrink:0;";
       title.textContent="MAPA DE ASIENTOS — 8VO BÁSICO";
       overlay.appendChild(title);
       // Grid container
       const gc=document.createElement("div");
       gc.id="student-grid-container";
-      gc.style.cssText="display:flex;flex-direction:column;align-items:center;width:100%;";
+      gc.style.cssText="display:flex;flex-direction:column;align-items:stretch;width:100%;flex:1;min-height:0;padding:6px 10px 8px;box-sizing:border-box;";
       overlay.appendChild(gc);
       document.body.appendChild(overlay);
     }
@@ -2312,68 +2312,63 @@ function renderStudentOverlay() {
   if (!gc) return;
   gc.innerHTML="";
 
-  // Pizarra ARRIBA (estudiante mira hacia la pizarra)
+  const useGroups = STATE.groupMode === "groups";
+
+  // ── Pizarra ARRIBA ──
   const boardEl=document.createElement("div");
-  boardEl.style.cssText="background:linear-gradient(90deg,#1f3a5c,#1a1f35);border:1px solid #2d4a6e;border-radius:10px;text-align:center;padding:10px 40px;margin-bottom:20px;font-size:12px;font-weight:800;letter-spacing:.25em;color:#79b8ff;";
+  boardEl.style.cssText="background:linear-gradient(90deg,#1f3a5c,#1a1f35);border:1px solid #2d4a6e;border-radius:8px;text-align:center;padding:6px 0;margin-bottom:6px;font-size:clamp(10px,1.2vw,14px);font-weight:800;letter-spacing:.2em;color:#79b8ff;flex-shrink:0;";
   boardEl.textContent="▌  P I Z A R R Ó N  ▐";
   gc.appendChild(boardEl);
 
-  // Modo grupos: render igual que vista profesor pero solo nombres, con cajas de grupo
-  // Modo estándar: columnas simples
-  const useGroups = STATE.groupMode === "groups";
+  // ── Contenedor del grid: ocupa todo el espacio restante ──
+  const gridWrap=document.createElement("div");
+  gridWrap.style.cssText="flex:1;min-height:0;display:flex;flex-direction:row;gap:clamp(4px,.6vw,10px);align-items:flex-start;width:100%;";
 
-  const gridRow=document.createElement("div");
-  gridRow.style.cssText="display:flex;flex-direction:row;gap:"+(useGroups?"10px":"8px")+";align-items:flex-start;justify-content:center;width:100%;";
-
-  // Alumno ve COL1 a la izquierda → col0 primero → colPairsScreen invertido
-  // Profesor: colPairsScreen = [[5,4],[3,2],[1,0]]
-  // Alumno:   espejado         = [[0,1],[2,3],[4,5]]
   const colPairsStudent = [[0,1],[2,3],[4,5]];
 
   if(useGroups) {
-    // Render group boxes — same logic as teacher but student view (rows inverted, no data)
     for(const [colA,colB] of colPairsStudent){
       const pairGroupNums=new Set();
       for(const g of Object.keys(SEAT_GROUPS)){
         if(SEAT_GROUPS[g].some(([c])=>c===colA||c===colB)) pairGroupNums.add(g);
       }
       const sortedGroups=[...pairGroupNums].sort((a,b)=>{
-        // Student view: near pizarra = top → sort descending by row
         const maxA=Math.max(...SEAT_GROUPS[a].map(([c,r])=>r));
         const maxB=Math.max(...SEAT_GROUPS[b].map(([c,r])=>r));
         return maxB-maxA;
       });
       const pairWrap=document.createElement("div");
-      pairWrap.style.cssText="display:flex;flex-direction:column;gap:8px;";
+      pairWrap.style.cssText="display:flex;flex-direction:column;gap:clamp(4px,.5vw,8px);flex:1;min-width:0;";
 
       for(const g of sortedGroups){
         const gc2=GROUP_COLORS[parseInt(g)]||"#555";
         const gSeats=SEAT_GROUPS[g].filter(([c])=>c===colA||c===colB);
-        const rows=[...new Set(gSeats.map(([c,r])=>r))].sort((a,b)=>b-a); // desc = near pizarra first
+        const rows=[...new Set(gSeats.map(([c,r])=>r))].sort((a,b)=>b-a);
 
         const groupBox=document.createElement("div");
-        groupBox.style.cssText=`border:2px solid ${gc2};border-radius:14px;padding:18px 5px 6px;position:relative;display:flex;flex-direction:row;gap:5px;align-items:flex-start;`;
+        groupBox.style.cssText=`border:2px solid ${gc2};border-radius:12px;padding:clamp(14px,1.5vw,20px) clamp(3px,.4vw,6px) clamp(5px,.5vw,8px);position:relative;display:flex;flex-direction:row;gap:clamp(3px,.4vw,6px);align-items:flex-start;`;
 
         const glbl=document.createElement("div");
-        glbl.style.cssText=`position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:800;letter-spacing:.05em;padding:1px 8px;border-radius:20px;border:1.5px solid ${gc2};background:#07090f;color:${gc2};white-space:nowrap;`;
+        glbl.style.cssText=`position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:clamp(8px,.8vw,11px);font-weight:800;letter-spacing:.05em;padding:1px 8px;border-radius:20px;border:1.5px solid ${gc2};background:#07090f;color:${gc2};white-space:nowrap;`;
         glbl.textContent=`Grupo ${g}`;
         groupBox.appendChild(glbl);
 
         for(const col of [colA,colB]){
           const colSub=document.createElement("div");
-          colSub.style.cssText="display:flex;flex-direction:column;gap:5px;align-items:center;";
+          colSub.style.cssText="display:flex;flex-direction:column;gap:clamp(3px,.4vw,6px);flex:1;min-width:0;";
           for(const row of rows){
             if(row<COL_SIZES[col]){
               const id=STATE.grid[col]?.[row];
               const s=id?getById(id):null;
               const seat=document.createElement("div");
-              seat.style.cssText=`width:100px;min-height:50px;border-radius:8px;`+
+              seat.style.cssText=
                 `background:${s?gc2+"22":"transparent"};`+
-                `border:1.5px solid ${s?gc2+"66":"rgba(255,255,255,.06)"};`+
-                `display:flex;align-items:center;justify-content:center;padding:5px;`;
+                `border:1.5px solid ${s?gc2+"88":"rgba(255,255,255,.06)"};`+
+                `border-radius:8px;display:flex;align-items:center;justify-content:center;`+
+                `padding:clamp(4px,.5vw,8px);min-height:clamp(40px,5vh,70px);`;
               if(s){
                 const nm=document.createElement("div");
-                nm.style.cssText="font-size:13px;font-weight:700;color:#f0f6fc;text-align:center;line-height:1.25;width:100%;";
+                nm.style.cssText="font-size:clamp(11px,1.1vw,16px);font-weight:700;color:#f0f6fc;text-align:center;line-height:1.2;width:100%;word-break:break-word;";
                 nm.textContent=s.name||`A${s.id}`;
                 seat.appendChild(nm);
               }
@@ -2384,38 +2379,42 @@ function renderStudentOverlay() {
         }
         pairWrap.appendChild(groupBox);
       }
-      gridRow.appendChild(pairWrap);
+      gridWrap.appendChild(pairWrap);
     }
   } else {
-    // Standard view: simple columns, near pizarra at top
+    // Vista filas: 6 columnas que llenan el ancho
     for(const col of [0,1,2,3,4,5]){
       const colDiv=document.createElement("div");
-      colDiv.style.cssText="display:flex;flex-direction:column;gap:6px;align-items:center;";
+      colDiv.style.cssText="display:flex;flex-direction:column;gap:clamp(4px,.5vh,8px);flex:1;min-width:0;";
       for(let i=COL_SIZES[col]-1;i>=0;i--){
         const id=STATE.grid[col]?.[i];
         const s=id?getById(id):null;
         const seat=document.createElement("div");
-        seat.style.cssText=`width:100px;min-height:50px;border-radius:10px;`+
+        seat.style.cssText=
           `background:${s?"rgba(255,255,255,.07)":"transparent"};`+
-          `border:2px solid ${s?"rgba(255,255,255,.18)":"rgba(255,255,255,.04)"};`+
-          `display:flex;align-items:center;justify-content:center;padding:6px;`;
+          `border:2px solid ${s?"rgba(255,255,255,.2)":"rgba(255,255,255,.04)"};`+
+          `border-radius:10px;display:flex;align-items:center;justify-content:center;`+
+          `padding:clamp(4px,.5vw,8px);flex:1;min-height:clamp(40px,5vh,72px);`;
         if(s){
           const nm=document.createElement("div");
-          nm.style.cssText="font-size:13px;font-weight:700;color:#f0f6fc;text-align:center;line-height:1.25;width:100%;";
+          nm.style.cssText="font-size:clamp(11px,1.1vw,17px);font-weight:700;color:#f0f6fc;text-align:center;line-height:1.2;width:100%;word-break:break-word;";
           nm.textContent=s.name||`A${s.id}`;
           seat.appendChild(nm);
         }
         colDiv.appendChild(seat);
       }
+      // Label columna al fondo
       const lbl=document.createElement("div");
-      lbl.style.cssText="font-size:9px;font-weight:800;color:#30363d;margin-top:4px;letter-spacing:.06em;";
+      lbl.style.cssText="font-size:clamp(7px,.7vw,9px);font-weight:800;color:#30363d;text-align:center;padding-top:2px;letter-spacing:.06em;flex-shrink:0;";
       lbl.textContent=`COL ${col+1}`;
       colDiv.appendChild(lbl);
-      gridRow.appendChild(colDiv);
+      gridWrap.appendChild(colDiv);
     }
   }
-  gc.appendChild(gridRow);
+
+  gc.appendChild(gridWrap);
 }
+
 function setHeatVar(v) {
   STATE.heatVar=v;
   document.querySelectorAll(".tab-btn[data-hv]").forEach(b=>b.classList.toggle("active",b.dataset.hv===v));
@@ -3082,109 +3081,85 @@ document.addEventListener("DOMContentLoaded",()=>{
 //  PRINT — Mapa para libro de clases (carta, B&W, solo nombre + Nº)
 // ═══════════════════════════════════════════════════════════════════
 function printSeatingChart() {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("es-CL",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-  const cursos = getCursos();
-  const curso  = cursos.find(c=>c.id===CURRENT_CURSO_ID)||{nombre:"Curso",nivel:""};
-  const titulo = `Mapa-${(curso.nombre||"Asientos").replace(/\s+/g,"-")}-${now.toISOString().slice(0,10)}`;
-
-  // Clonar el grid real tal como se ve en pantalla
   const srcGrid = document.getElementById("seat-grid");
   if (!srcGrid) { alert("Genera el mapa primero"); return; }
-  const gridClone = srcGrid.cloneNode(true);
 
-  // Recolectar todos los estilos computados relevantes del DOM
-  // Serializar el grid como HTML inline para la ventana nueva
-  function inlineStyles(el) {
-    if (el.nodeType !== 1) return;
-    const cs = window.getComputedStyle(el);
-    // Solo propiedades clave para layout y apariencia
-    const props = [
-      "display","flex-direction","flex-wrap","flex","flex-grow","flex-shrink","flex-basis",
-      "align-items","align-self","justify-content","gap","width","height","min-height","max-height",
-      "min-width","max-width","padding","padding-top","padding-right","padding-bottom","padding-left",
-      "margin","margin-top","border","border-top","border-right","border-bottom","border-left",
-      "border-radius","border-color","border-width","border-style",
-      "background","background-color","color","font-size","font-weight","font-family",
-      "line-height","white-space","overflow","text-overflow","position","top","right","bottom","left",
-      "z-index","box-sizing","letter-spacing","text-align","opacity","transform-origin"
-    ];
-    let style = "";
-    for (const p of props) {
-      const v = cs.getPropertyValue(p);
-      if (v && v !== "initial" && v !== "normal" && v !== "none" && v !== "auto" && v !== "0px" && v !== "rgba(0, 0, 0, 0)" && v !== "transparent") {
-        style += `${p}:${v};`;
+  const cursos = getCursos();
+  const curso  = cursos.find(c=>c.id===CURRENT_CURSO_ID)||{nombre:"Curso",nivel:""};
+  const now    = new Date();
+  const dateStr= now.toLocaleDateString("es-CL",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+
+  // Inyectar estilos de impresión directamente en <head>
+  // Letter landscape = 279 x 216 mm → útil ~259 x 196 mm a 96dpi ≈ 980 x 742px
+  let ps = document.getElementById("_ps");
+  if (!ps) { ps = document.createElement("style"); ps.id="_ps"; document.head.appendChild(ps); }
+  ps.textContent = `
+    @page { size: letter landscape; margin: 10mm; }
+    @media print {
+      body > *:not(#_print_wrap) { display: none !important; }
+      #_print_wrap {
+        display: flex !important;
+        position: fixed; inset: 0;
+        flex-direction: column;
+        background: white;
+        font-family: Arial, sans-serif;
+        color: #000;
       }
     }
-    // Always force box-sizing
-    style += "box-sizing:border-box;";
-    el.setAttribute("style", style);
-    for (const child of el.children) inlineStyles(child);
-  }
-  inlineStyles(gridClone);
+  `;
 
-  // Forzar layout del grid contenedor
-  gridClone.style.cssText = "display:flex;flex-direction:row;gap:6px;width:100%;align-items:flex-end;box-sizing:border-box;";
+  // Crear o reusar wrapper de impresión
+  let wrap = document.getElementById("_print_wrap");
+  if (wrap) wrap.remove();
+  wrap = document.createElement("div");
+  wrap.id = "_print_wrap";
+  wrap.style.cssText = "display:none;flex-direction:column;background:white;font-family:Arial,sans-serif;color:#000;position:fixed;inset:0;z-index:99999;";
 
-  // Cada col-div: flex:1
-  for (const col of gridClone.children) {
-    col.style.cssText = (col.style.cssText||"") + "flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;";
-  }
+  // Encabezado
+  wrap.innerHTML = `
+    <div style="padding:6px 12px;border-bottom:2px solid #000;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+      <div>
+        <div style="font-size:15px;font-weight:900;">MAPA DE ASIENTOS</div>
+        <div style="font-size:10px;color:#333;">${curso.nombre}${curso.nivel?" · "+curso.nivel:""}</div>
+      </div>
+      <div style="font-size:9px;color:#555;text-align:right;">
+        <div style="text-transform:capitalize;font-weight:700;">${dateStr}</div>
+        <div>Libro de Clases · Distribución de puestos</div>
+      </div>
+    </div>`;
 
-  const html = `<!DOCTYPE html><html lang="es"><head>
-<meta charset="utf-8"><title>${titulo}</title>
-<style>
-  @page { size: letter landscape; margin: 6mm 8mm; }
-  * { box-sizing:border-box !important; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-  html,body { margin:0; padding:0; width:100%; height:100%; font-family:Arial,sans-serif; background:white; color:#000; }
-  #wrap { width:100%; height:100vh; display:flex; flex-direction:column; }
-  #grid-area { flex:1; display:flex; flex-direction:row; gap:6px; align-items:flex-end; min-height:0; overflow:hidden; }
-  /* Colores inline reemplazando CSS vars */
-  [style*="var(--text)"]    { color:#000 !important; }
-  [style*="var(--muted)"]   { color:#555 !important; }
-  [style*="var(--accent)"]  { color:#1f6feb !important; }
-  [style*="var(--violet)"]  { color:#7c3aed !important; }
-  [style*="var(--border)"]  { border-color:#d0d7de !important; }
-  [style*="var(--border2)"] { border-color:#aaa !important; }
-  [style*="var(--surface)"] { background:#f6f8fa !important; }
-  [style*="var(--mono)"]    { font-family:monospace !important; }
-  /* Asientos */
-  .seat, .occupied { border-radius:8px !important; overflow:hidden !important; }
-  .empty-cell { border:2px dashed #ccc !important; background:#fafafa !important; border-radius:8px !important; }
-  .seat-dot { border-radius:50% !important; display:inline-block !important; width:8px !important; height:8px !important; flex-shrink:0 !important; }
-  .part-bar { height:4px !important; background:#e0e0e0 !important; border-radius:2px !important; flex:1 !important; position:relative !important; overflow:hidden !important; }
-  .part-fill { position:absolute !important; left:0 !important; top:0 !important; height:100% !important; border-radius:2px !important; }
-</style>
-</head><body>
-<div id="wrap">
-  <div style="padding:6px 10px 5px;border-bottom:2px solid #000;display:flex;justify-content:space-between;align-items:flex-end;flex-shrink:0;">
-    <div>
-      <div style="font-size:16px;font-weight:900;line-height:1;">MAPA DE ASIENTOS</div>
-      <div style="font-size:10px;font-weight:700;color:#333;margin-top:2px;">${curso.nombre}${curso.nivel?" · "+curso.nivel:""}</div>
-    </div>
-    <div style="text-align:right;font-size:8px;color:#555;line-height:1.6;">
-      <div style="font-weight:700;text-transform:capitalize;">${dateStr}</div>
-      <div>Libro de Clases · Distribución de puestos</div>
-    </div>
-  </div>
-  <div style="font-size:7px;color:#777;padding:3px 10px;display:flex;gap:16px;flex-shrink:0;border-bottom:1px solid #eee;">
-    <span>● COL 1 (derecha) → COL 6 (izquierda)</span>
-    <span>● Fila superior: lejos pizarra · Fila inferior: cerca pizarra</span>
-  </div>
-  <div id="grid-area">${gridClone.outerHTML}</div>
-  <div style="background:#111;color:white;text-align:center;padding:4px;font-size:9px;font-weight:900;letter-spacing:.2em;flex-shrink:0;">▌   P I Z A R R Ó N   —   D O C E N T E   ▐</div>
-  <div style="padding:2px 10px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:6px;color:#aaa;flex-shrink:0;">
-    <span>AsignadorPuestos · uso interno</span><span>Impreso: ${now.toLocaleString("es-CL")}</span>
-  </div>
-</div>
-</body></html>`;
+  // Clonar el grid tal como está en pantalla
+  const clone = srcGrid.cloneNode(true);
+  clone.style.cssText = "flex:1;min-height:0;display:flex;flex-direction:row;gap:6px;align-items:flex-end;width:100%;padding:6px 12px;box-sizing:border-box;";
+  // Arreglar variables CSS → valores literales para impresión b&w compatible
+  clone.querySelectorAll("*").forEach(el => {
+    const s = el.getAttribute("style")||"";
+    el.setAttribute("style", s
+      .replace(/var\(--text\)/g,"#000")
+      .replace(/var\(--muted\)/g,"#555")
+      .replace(/var\(--accent\)/g,"#1f6feb")
+      .replace(/var\(--violet\)/g,"#7c3aed")
+      .replace(/var\(--border[2]?\)/g,"#ccc")
+      .replace(/var\(--surface[2]?\)/g,"#f5f5f5")
+      .replace(/var\(--mono\)/g,"monospace")
+      .replace(/var\(--[^)]+\)/g,"")
+    );
+  });
+  wrap.appendChild(clone);
 
-  const pw = window.open("","_blank");
-  if (!pw) { alert("Permite ventanas emergentes en Safari para imprimir"); return; }
-  pw.document.write(html);
-  pw.document.close();
-  pw.focus();
-  setTimeout(()=>{ pw.print(); }, 800);
+  // Pizarra
+  const piz = document.createElement("div");
+  piz.style.cssText = "background:#111;color:white;text-align:center;padding:4px;font-size:9px;font-weight:900;letter-spacing:.2em;flex-shrink:0;";
+  piz.textContent = "▌   P I Z A R R Ó N   —   D O C E N T E   ▐";
+  wrap.appendChild(piz);
+
+  document.body.appendChild(wrap);
+  wrap.style.display = "flex";
+
+  window.print();
+
+  // Limpiar después
+  setTimeout(()=>{ wrap.remove(); ps.textContent=""; }, 1000);
 }
 
 
