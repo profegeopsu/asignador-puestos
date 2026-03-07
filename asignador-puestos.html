@@ -163,7 +163,7 @@
   /* Pair connector line */
   .seats-row { position:relative; }
 
-  .seat { width:100%; min-width:72px; max-width:110px; min-height:clamp(60px, 6.5vw, 84px); border-radius:10px; border:2px solid var(--border);
+  .seat { width:100%; min-width:80px; max-width:none; min-height:64px; border-radius:10px; border:2px solid var(--border);
           background:var(--surface2); cursor:default; transition:transform .12s, box-shadow .12s;
           position:relative; padding:6px 5px 4px; user-select:none; }
   .seat.occupied { cursor:grab; }
@@ -195,7 +195,67 @@
   .seat.student-cell .seat-name { color:#79b8ff; font-size:11px; text-align:center; }
 
   /* ── RIGHT PANEL ── */
-  .map-layout { display:block; }  /* full width — detail panel now floats */
+  .map-layout { display:flex; flex-direction:row; gap:10px; align-items:flex-start; }
+  /* ── PANEL LATERAL ── */
+  #side-panel {
+    width: 220px; min-width:220px; flex-shrink:0;
+    display:flex; flex-direction:column; gap:8px;
+    transition: width .25s ease, min-width .25s ease, opacity .2s ease;
+    position:relative;
+  }
+  #side-panel.collapsed {
+    width: 0; min-width:0; overflow:visible;
+  }
+  #side-panel.collapsed .side-panel-inner {
+    opacity:0; pointer-events:none;
+  }
+  .side-panel-inner {
+    display:flex; flex-direction:column; gap:8px;
+    transition: opacity .2s ease;
+    width:220px;
+  }
+  /* Tab de colapso */
+  #side-panel-tab {
+    position:absolute; right:-22px; top:50%;
+    transform:translateY(-50%);
+    width:22px; height:60px;
+    background:var(--surface); border:1px solid var(--border2);
+    border-left:none; border-radius:0 8px 8px 0;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; z-index:10; font-size:11px; color:var(--muted);
+    transition:.2s; user-select:none;
+  }
+  #side-panel-tab:hover { background:var(--surface2); color:var(--text); }
+  /* Secciones del panel */
+  .sp-section {
+    background:var(--surface); border:1px solid var(--border2);
+    border-radius:12px; overflow:hidden;
+  }
+  .sp-section-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 10px; cursor:pointer; user-select:none;
+    border-bottom:1px solid var(--border);
+    font-size:10px; font-weight:800; letter-spacing:.06em; color:var(--muted);
+  }
+  .sp-section-header:hover { background:var(--surface2); }
+  .sp-section-header .sp-badge {
+    background:var(--red); color:white; border-radius:99px;
+    padding:1px 6px; font-size:9px; font-weight:900;
+  }
+  .sp-section-header .sp-badge.green { background:var(--green); }
+  .sp-section-header .sp-badge.accent { background:var(--accent); }
+  .sp-section-body { padding:8px; }
+  .sp-section-body.collapsed-body { display:none; }
+  /* Mapa ocupa el resto */
+  #map-grid-area { flex:1; min-width:0; }
+  /* Nota rápida textarea */
+  .sp-note-area {
+    width:100%; background:var(--surface2); border:1px solid var(--border2);
+    border-radius:6px; padding:6px 8px; font-size:11px; color:var(--text);
+    resize:vertical; min-height:64px; font-family:var(--mono); line-height:1.5;
+    box-sizing:border-box;
+  }
+  .sp-note-area:focus { outline:none; border-color:var(--accent); }
 
   .detail-panel { display:flex; flex-direction:column; gap:12px; }
   /* Zoom wrapper */
@@ -658,34 +718,85 @@
     </div>
 
     <div class="map-layout">
-      <!-- FULL WIDTH GRID -->
-      <div class="card" style="padding:16px; position:relative;">
-        <div id="board-top"></div>
-        <div class="zoom-wrap">
-          <div class="zoom-inner" id="zoom-inner">
-            <div class="grid-wrap" id="seat-grid"></div>
+
+      <!-- ══ PANEL LATERAL IZQUIERDO ══ -->
+      <div id="side-panel">
+        <div id="side-panel-tab" onclick="toggleSidePanel()" title="Colapsar/expandir panel">‹</div>
+        <div class="side-panel-inner">
+
+          <!-- Conflictos activos -->
+          <div class="sp-section" id="sp-conflictos">
+            <div class="sp-section-header" onclick="toggleSpSection('sp-conflictos')">
+              <span>⚠️ CONFLICTOS</span>
+              <span class="sp-badge" id="sp-badge-conflictos">0</span>
+            </div>
+            <div class="sp-section-body" id="sp-body-conflictos">
+              <div id="sp-conflictos-list" style="font-size:11px;color:var(--muted);">Sin conflictos ✓</div>
+            </div>
           </div>
+
+          <!-- Alumnos sin asignar -->
+          <div class="sp-section" id="sp-unassigned">
+            <div class="sp-section-header" onclick="toggleSpSection('sp-unassigned')">
+              <span>📍 SIN ASIGNAR</span>
+              <span class="sp-badge" id="sp-badge-unassigned">0</span>
+            </div>
+            <div class="sp-section-body sp-collapsed-body" id="sp-body-unassigned">
+              <div id="sp-unassigned-list" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+              <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;font-size:10px;" onclick="autoAssignRemaining()">⚡ Asignar todos</button>
+            </div>
+          </div>
+
+          <!-- Historial de versiones -->
+          <div class="sp-section" id="sp-historial">
+            <div class="sp-section-header" onclick="toggleSpSection('sp-historial')">
+              <span>📚 HISTORIAL</span>
+              <span class="sp-badge accent" id="sp-badge-historial">0</span>
+            </div>
+            <div class="sp-section-body sp-collapsed-body" id="sp-body-historial">
+              <div id="sp-historial-list" style="font-size:11px;color:var(--muted);">Sin versiones guardadas</div>
+            </div>
+          </div>
+
+          <!-- Notas rápidas del curso -->
+          <div class="sp-section" id="sp-notas">
+            <div class="sp-section-header" onclick="toggleSpSection('sp-notas')">
+              <span>📝 NOTAS CURSO</span>
+            </div>
+            <div class="sp-section-body sp-collapsed-body" id="sp-body-notas">
+              <textarea class="sp-note-area" id="sp-nota-text"
+                placeholder="Observaciones del curso, recordatorios..."
+                oninput="saveCursoNota(this.value)"></textarea>
+            </div>
+          </div>
+
         </div>
-        <div id="board-bottom"></div>
-        <div class="legend" style="margin-top:12px;" id="grid-legend"></div>
       </div>
 
-      <!-- DETAIL CARD (floating, shown on seat click) -->
-      <div id="detail-card" style="display:none; margin-top:12px;" class="detail-card"></div>
-      <div id="conflictos-panel" class="conflicts-panel" style="display:none;"></div>
-      <div id="historial-panel" class="hist-panel" style="display:none;"></div>
-      <div id="unassigned-panel">
-        <div class="panel-title">⚠️ ALUMNOS SIN PUESTO ASIGNADO — arrastra al mapa o haz clic para asignar automáticamente</div>
-        <div class="unassigned-list" id="unassigned-list"></div>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px;font-size:11px;" onclick="autoAssignRemaining()">⚡ Asignar todos automáticamente</button>
+      <!-- ══ ÁREA DEL MAPA ══ -->
+      <div id="map-grid-area">
+        <div class="card" style="padding:16px; position:relative;">
+          <div id="board-top"></div>
+          <div class="zoom-wrap">
+            <div class="zoom-inner" id="zoom-inner">
+              <div class="grid-wrap" id="seat-grid"></div>
+            </div>
+          </div>
+          <div id="board-bottom"></div>
+          <div class="legend" style="margin-top:12px;" id="grid-legend"></div>
+        </div>
+
+        <!-- DETAIL CARD -->
+        <div id="detail-card" style="display:none; margin-top:12px;" class="detail-card"></div>
+
+        <!-- CMD BAR -->
+        <div class="cmd-bar" id="cmd-box">
+          <span class="cmd-bar-label">⚡ IA</span>
+          <textarea id="cmd-input" rows="1" placeholder='Ej: "Mueve participación baja a primeras filas" · "Separa disruptivos"'></textarea>
+          <button class="btn btn-primary btn-sm" id="btn-cmd" onclick="runCommand()" style="white-space:nowrap;">Aplicar →</button>
+        </div>
       </div>
 
-      <!-- CMD BAR — bottom, full width, teacher/heatmap only -->
-      <div class="cmd-bar" id="cmd-box">
-        <span class="cmd-bar-label">⚡ IA</span>
-        <textarea id="cmd-input" rows="1" placeholder='Ej: "Mueve participación baja a primeras filas" · "Separa disruptivos" · "Pon tutores junto a alumnos NEE"'></textarea>
-        <button class="btn btn-primary btn-sm" id="btn-cmd" onclick="runCommand()" style="white-space:nowrap;">Aplicar →</button>
-      </div>
     </div>
   </div>
 
@@ -1702,7 +1813,7 @@ function renderGrid() {
 
   // warnings
   const warns=checkConflicts();
-  setTimeout(()=>{ renderConflictosPanel(); renderHistorialPanel(); renderUnassignedPanel(); },50);
+  setTimeout(()=>{ updateSidePanel(); },50);
   const wb=document.getElementById("warnings-bar");
   if (warns.length) {
     wb.style.display="flex";
@@ -1758,7 +1869,7 @@ function renderGrid() {
   gridWrap.innerHTML="";
   gridWrap.style.display="flex";
   gridWrap.style.flexDirection="row";
-  gridWrap.style.gap="clamp(4px,0.6vw,10px)";
+  gridWrap.style.gap="6px";
   gridWrap.style.justifyContent="space-between";
   gridWrap.style.alignItems="flex-end"; // alinear columnas a la base (pizarra)
 
@@ -1773,7 +1884,7 @@ function renderGrid() {
   const colDivs = {};
   for(const col of colScreenOrder){
     const colDiv=document.createElement("div");
-    colDiv.style.cssText="display:flex;flex-direction:column;gap:5px;align-items:center;";
+    colDiv.style.cssText="display:flex;flex-direction:column;gap:5px;align-items:stretch;flex:1;min-width:0;";
 
     const size=COL_SIZES[col];
     const rowOrder = isStudent
@@ -1944,35 +2055,79 @@ function buildSeatEl(col,row) {
     el.addEventListener("mousemove",  e=>{ clearTimeout(_tooltipTimer); _tooltipTimer=setTimeout(()=>showTooltip(s,e.clientX,e.clientY),900); });
     el.addEventListener("mouseleave", ()=>hideTooltip());
 
-    // Número de lista en esquina superior derecha del puesto
-    const numBadge=document.createElement("div");
-    numBadge.style.cssText="position:absolute;top:2px;right:4px;font-size:8px;font-weight:900;color:var(--accent);font-family:var(--mono);opacity:.7;";
-    numBadge.textContent=s.id;
-    el.appendChild(numBadge);
+    // ── LAYOUT: número grande izquierda | info derecha ──
+    el.style.display="flex";
+    el.style.flexDirection="row";
+    el.style.alignItems="stretch";
+    el.style.padding="0";
+    el.style.overflow="hidden";
+    el.style.minHeight="64px";
+
+    // Columna izquierda: número de lista grande
+    const numCol=document.createElement("div");
+    numCol.style.cssText=[
+      "display:flex","flex-direction:column","align-items:center","justify-content:center",
+      "min-width:28px","width:28px","background:rgba(88,166,255,.10)",
+      "border-right:1px solid var(--border)","flex-shrink:0","gap:1px","padding:4px 2px"
+    ].join(";");
+    const numEl=document.createElement("div");
+    numEl.style.cssText="font-size:16px;font-weight:900;color:var(--accent);font-family:var(--mono);line-height:1;text-align:center;";
+    numEl.textContent=s.id;
+    // Gender indicator under number
+    const gdSmall=document.createElement("div");
+    gdSmall.style.cssText="font-size:8px;font-weight:800;line-height:1;";
+    gdSmall.style.color=GENDER_CLR[s.gender]||"var(--muted)";
+    gdSmall.textContent=s.gender;
+    numCol.appendChild(numEl);
+    numCol.appendChild(gdSmall);
+    el.appendChild(numCol);
+
+    // Columna derecha: nombre + diagnóstico + barra + grupo
+    const infoCol=document.createElement("div");
+    infoCol.style.cssText="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;padding:5px 5px 4px 6px;";
+
+    // Nombre (primera línea)
     const nm=document.createElement("div"); nm.className="seat-name";
-    // Show full name, truncate gracefully
     const parts=(s.name||`A${s.id}`).trim().split(" ");
     nm.textContent = parts.length>1 ? parts[0]+" "+parts[parts.length-1] : parts[0];
-    nm.title = s.name||""; // full name on native tooltip
-    el.appendChild(nm);
+    nm.title = s.name||"";
+    nm.style.cssText="font-size:clamp(9px,.9vw,11px);font-weight:700;color:var(--text);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    infoCol.appendChild(nm);
 
+    // Diagnóstico (segunda línea si existe)
     if (s.diagnosis!=="—") {
-      const dg=document.createElement("div"); dg.className="seat-diag"; dg.textContent=s.diagnosis; el.appendChild(dg);
+      const dg=document.createElement("div");
+      dg.style.cssText="font-size:clamp(7px,.7vw,9px);color:var(--violet);line-height:1;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+      dg.textContent=s.diagnosis;
+      infoCol.appendChild(dg);
     }
-    const bot=document.createElement("div"); bot.className="seat-bottom";
-    const gd=document.createElement("span"); gd.className="seat-gender"; gd.style.color=GENDER_CLR[s.gender]; gd.textContent=s.gender;
-    const ri=document.createElement("span"); ri.className="seat-icons"; ri.textContent=(s.visual?"👁":"")+(s.hearing?"👂":"");
-    const dt=document.createElement("span"); dt.className="seat-dot"; dt.style.background=PERF_COLOR[s.performance]||"#484f58";
-    bot.appendChild(gd); bot.appendChild(ri); bot.appendChild(dt); el.appendChild(bot);
 
-    const pb=document.createElement("div"); pb.className="part-bar";
+    // Nota (si existe)
+    if (s.notes) {
+      const nt=document.createElement("div");
+      nt.style.cssText="font-size:clamp(6px,.65vw,8px);color:var(--muted);line-height:1;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;";
+      nt.textContent="📝 "+s.notes;
+      infoCol.appendChild(nt);
+    }
+
+    // Fila inferior: punto rendimiento + iconos + barra participación
+    const botRow=document.createElement("div");
+    botRow.style.cssText="display:flex;align-items:center;gap:3px;margin-top:auto;padding-top:3px;";
+    const dt=document.createElement("span"); dt.className="seat-dot"; dt.style.background=PERF_COLOR[s.performance]||"#484f58"; dt.style.flexShrink="0";
+    const ri=document.createElement("span"); ri.style.cssText="font-size:8px;line-height:1;"; ri.textContent=(s.visual?"👁":"")+(s.hearing?"👂":"");
+    const pb=document.createElement("div"); pb.className="part-bar"; pb.style.flex="1"; pb.style.margin="0";
     const pf=document.createElement("div"); pf.className="part-fill";
     pf.style.background=PART_COLOR[s.participation];
     pf.style.width=s.participation==="Alta"?"100%":s.participation==="Media"?"55%":"22%";
-    pb.appendChild(pf); el.appendChild(pb);
-    // Grupo separación badge
+    pb.appendChild(pf);
+    botRow.appendChild(dt); botRow.appendChild(ri); botRow.appendChild(pb);
+    infoCol.appendChild(botRow);
+    el.appendChild(infoCol);
+
+    // Grupo separación badge (esquina sup derecha)
     if (s.grupoSep) {
       const gb=document.createElement("div"); gb.className="grupo-badge";
+      gb.style.cssText="position:absolute;top:2px;right:2px;width:13px;height:13px;border-radius:50%;font-size:7px;font-weight:900;display:flex;align-items:center;justify-content:center;z-index:2;";
       gb.style.background=GRUPO_SEP_COLORS[s.grupoSep]||"#888";
       gb.style.color="#0d1117"; gb.textContent=s.grupoSep;
       el.appendChild(gb);
@@ -2313,6 +2468,7 @@ async function openCurso(id) {
   const _topbar=document.getElementById("topbar");
   if(_topbar && _cData?.color) _topbar.style.borderBottom="2px solid "+_cData.color;
   else if(_topbar) _topbar.style.borderBottom="";
+  setTimeout(loadCursoNota, 100);
   toast("📂 Curso cargado","accent");
 }
 
@@ -2432,6 +2588,121 @@ function autoAssignRemaining() {
   pushHistory();
   unassigned.forEach(s=>autoAssignOne(s.id));
   toast(`✅ ${unassigned.length} alumnos asignados`,"green");
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  PANEL LATERAL
+// ═══════════════════════════════════════════════════════════════════
+let _sidePanelOpen = true;
+
+function toggleSidePanel() {
+  _sidePanelOpen = !_sidePanelOpen;
+  const panel = document.getElementById("side-panel");
+  const tab   = document.getElementById("side-panel-tab");
+  if (_sidePanelOpen) {
+    panel.classList.remove("collapsed");
+    tab.textContent = "‹";
+    tab.title = "Colapsar panel";
+  } else {
+    panel.classList.add("collapsed");
+    tab.textContent = "›";
+    tab.title = "Expandir panel";
+  }
+  // Re-fit zoom after layout change
+  setTimeout(autoFitZoom, 300);
+}
+
+function toggleSpSection(id) {
+  const body = document.getElementById("sp-body-" + id.replace("sp-",""));
+  if (!body) return;
+  body.classList.toggle("sp-collapsed-body");
+  // find chevron if any
+}
+
+function updateSidePanel() {
+  updateSpConflictos();
+  updateSpUnassigned();
+  updateSpHistorial();
+  loadCursoNota();
+}
+
+function updateSpConflictos() {
+  const warns = checkConflicts();
+  const badge = document.getElementById("sp-badge-conflictos");
+  const list  = document.getElementById("sp-conflictos-list");
+  if (!badge||!list) return;
+  badge.textContent = warns.length;
+  badge.style.background = warns.length ? "var(--red)" : "var(--green)";
+  // Auto-expand if there are conflicts
+  const body = document.getElementById("sp-body-conflictos");
+  if (body && warns.length) body.classList.remove("sp-collapsed-body");
+  if (!warns.length) {
+    list.innerHTML = '<span style="color:var(--green);font-size:11px;">✓ Sin conflictos</span>';
+    return;
+  }
+  const GCOL = GRUPO_SEP_COLORS;
+  list.innerHTML = warns.map(w=>`
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);">
+      <div style="flex:1;font-size:11px;font-weight:700;color:var(--red);line-height:1.3;">
+        ${w.tipo==="grupo"?`<span style="background:${GCOL[w.grupo]};color:#0d1117;padding:0 4px;border-radius:3px;font-size:9px;">${w.grupo}</span> `:""}
+        ${w.a} ↔ ${w.b}
+      </div>
+      <button class="btn btn-ghost btn-sm" style="font-size:9px;padding:2px 6px;white-space:nowrap;flex-shrink:0;"
+        onclick="resolverConflicto(${w.idA},${w.idB})">Separar</button>
+    </div>`).join("");
+}
+
+function updateSpUnassigned() {
+  const unassigned = getUnassignedStudents();
+  const badge = document.getElementById("sp-badge-unassigned");
+  const list  = document.getElementById("sp-unassigned-list");
+  if (!badge||!list) return;
+  badge.textContent = unassigned.length;
+  badge.style.background = unassigned.length ? "var(--red)" : "var(--green)";
+  const body = document.getElementById("sp-body-unassigned");
+  if (body && unassigned.length) body.classList.remove("sp-collapsed-body");
+  const GCOL = {M:"#58a6ff",F:"#f778ba",O:"#d2a8ff"};
+  list.innerHTML = unassigned.map(s=>`
+    <div class="unassigned-chip" draggable="true"
+      ondragstart="onDragStart(event,${s.id})"
+      onclick="autoAssignOne(${s.id})"
+      title="Clic: asignar automáticamente">
+      <span class="chip-gender" style="background:${GCOL[s.gender]||'#888'};color:#0d1117;">${s.gender}</span>
+      <span style="font-size:10px;">${(s.name||"A"+s.id).split(" ")[0]}</span>
+      ${s.grupoSep?`<span style="background:${GRUPO_SEP_COLORS[s.grupoSep]};color:#0d1117;border-radius:3px;padding:0 3px;font-size:8px;">${s.grupoSep}</span>`:""}
+    </div>`).join("") || '<span style="color:var(--muted);font-size:11px;">Todos asignados ✓</span>';
+}
+
+function updateSpHistorial() {
+  const list  = document.getElementById("sp-historial-list");
+  const badge = document.getElementById("sp-badge-historial");
+  if (!list||!badge) return;
+  const hist = getCursoHistorial();
+  badge.textContent = hist.length;
+  if (!hist.length) {
+    list.innerHTML='<span style="color:var(--muted);font-size:11px;">Sin versiones guardadas</span>';
+    return;
+  }
+  list.innerHTML = hist.map((v,i)=>`
+    <div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid var(--border);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.name}</div>
+        <div style="font-size:9px;color:var(--muted);">${new Date(v.date).toLocaleString("es-CL",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="font-size:9px;padding:2px 5px;" onclick="restaurarVersion(${i})">↩</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:9px;padding:2px 5px;color:var(--red);" onclick="eliminarVersion(${i})">✕</button>
+    </div>`).join("");
+}
+
+function saveCursoNota(text) {
+  if (!CURRENT_CURSO_ID) return;
+  localStorage.setItem("nota_"+CURRENT_CURSO_ID, text);
+}
+function loadCursoNota() {
+  const ta = document.getElementById("sp-nota-text");
+  if (!ta||!CURRENT_CURSO_ID) return;
+  ta.value = localStorage.getItem("nota_"+CURRENT_CURSO_ID)||"";
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2961,7 +3232,7 @@ function applyZoom() {
 function autoFitZoom() {
   // Calculate what zoom level makes the grid fill the available card width
   const inner = document.getElementById("zoom-inner");
-  const card  = inner?.closest(".card");
+  const card  = document.getElementById("map-grid-area") || inner?.closest(".card");
   if (!inner || !card) return;
   // Reset to 100% to measure natural width
   inner.style.transform = "scale(1)";
