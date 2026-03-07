@@ -259,7 +259,7 @@
 
   .detail-panel { display:flex; flex-direction:column; gap:12px; }
   /* Zoom wrapper */
-  .zoom-wrap { overflow:auto; }
+  .zoom-wrap { overflow:auto; min-width:0; }
   .zoom-inner { transform-origin:top center; transition:transform .15s; display:flex; width:100%; justify-content:stretch; }
   /* Cmd bar at bottom */
   .cmd-bar { display:flex; align-items:center; gap:10px; padding:10px 14px;
@@ -763,7 +763,7 @@
           <button class="btn btn-ghost btn-sm" onclick="guardarVersionDistribucion()">📚 Guardar versión</button>
           <div style="position:relative;display:inline-block;" id="print-menu-wrap">
             <button class="btn btn-ghost btn-sm" onclick="togglePrintMenu()" id="btn-print-toggle">🖨️ Imprimir ▾</button>
-            <div id="print-menu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--surface);border:1px solid var(--border2);border-radius:10px;min-width:200px;z-index:200;box-shadow:0 6px 20px rgba(0,0,0,.3);overflow:hidden;">
+            <div id="print-menu" style="display:none;position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:10px;min-width:220px;z-index:9999;box-shadow:0 6px 20px rgba(0,0,0,.3);overflow:hidden;">
               <button onclick="printSeatingChart(false);togglePrintMenu();" style="display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">
                 📋 Completo — con NEE, notas y promedios
               </button>
@@ -857,8 +857,8 @@
       </div>
 
       <!-- ══ ÁREA DEL MAPA ══ -->
-      <div id="map-grid-area">
-        <div class="card" style="padding:16px; position:relative;">
+      <div id="map-grid-area" style="min-width:0;flex:1;overflow:hidden;">
+        <div class="card" style="padding:16px; position:relative; overflow:visible; min-width:0;">
           <div id="board-top"></div>
           <div class="zoom-wrap">
             <div class="zoom-inner" id="zoom-inner">
@@ -2761,11 +2761,23 @@ let _sidePanelOpen = true;
 
 
 function togglePrintMenu() {
-  const m = document.getElementById("print-menu");
-  if (!m) return;
+  const m   = document.getElementById("print-menu");
+  const btn = document.getElementById("btn-print-toggle");
+  if (!m || !btn) return;
   const open = m.style.display === "none";
-  m.style.display = open ? "block" : "none";
   if (open) {
+    const r = btn.getBoundingClientRect();
+    const menuH = 100; // altura aproximada del menú
+    const spaceBelow = window.innerHeight - r.bottom;
+    if (spaceBelow < menuH + 10) {
+      // Abrir hacia arriba
+      m.style.top  = (r.top - menuH - 4) + "px";
+    } else {
+      m.style.top  = (r.bottom + 4) + "px";
+    }
+    m.style.right = (window.innerWidth - r.right) + "px";
+    m.style.left  = "auto";
+    m.style.display = "block";
     const close = (e) => {
       if (!document.getElementById("print-menu-wrap").contains(e.target)) {
         m.style.display = "none";
@@ -2773,6 +2785,8 @@ function togglePrintMenu() {
       }
     };
     setTimeout(() => document.addEventListener("click", close), 50);
+  } else {
+    m.style.display = "none";
   }
 }
 
