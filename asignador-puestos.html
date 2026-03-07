@@ -2767,7 +2767,8 @@ function executePasteImport() {
   saveState();
   renderRoster();
   document.getElementById("_paste_modal")?.remove();
-  toast(`✅ ${added} agregado${added!==1?"s":""}${updated?` · ${updated} actualizado${updated!==1?"s":""}":""}`, "green");
+  const updMsg = updated ? " · " + updated + " actualizado" + (updated!==1?"s":"") : "";
+  toast("✅ " + added + " agregado" + (added!==1?"s":"") + updMsg, "green");
 }
 
 function showCursos() { showScreen("cursos"); }
