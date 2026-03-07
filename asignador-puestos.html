@@ -1298,7 +1298,7 @@ function confirmListNumber(id, oldNum, input) {
   });
 }
 
-
+function addStudent() {
   const maxNum = STATE.students.reduce((m,s)=>Math.max(m, s.listNumber||0), 0);
   STATE.students.push(mkStudent({ listNumber: maxNum + 1 }));
   saveState(); renderRoster();
