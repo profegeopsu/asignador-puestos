@@ -176,10 +176,9 @@
   .seat.locked-seat::after { content:"🔒"; position:absolute; top:2px; right:3px; font-size:8px; }
   .seat.tutor-seat::before { content:"★"; position:absolute; top:2px; left:4px; font-size:9px; color:var(--green); }
   .seat.empty-cell { border-style:dashed; opacity:.3; }
-  .seat-name  { font-size:clamp(9px,1vw,12px); font-weight:700; color:var(--text); line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;
-                overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60px; }
+  .seat-name  { font-size:clamp(9px,1vw,12px); font-weight:700; color:var(--text); line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
   .seat-diag  { font-size:clamp(7px,.8vw,9px); color:var(--violet); line-height:1; margin-top:1px;
-                overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60px; }
+                overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
   .seat-bottom{ display:flex; align-items:center; justify-content:space-between; margin-top:3px; }
   .seat-gender{ font-size:clamp(8px,.9vw,10px); font-weight:800; }
   .seat-icons { font-size:8px; }
@@ -1564,10 +1563,7 @@ async function generateWithAI() {
       STATE.grid=newGrid;
       saveState();
       showScreen("map");
-      renderGrid();
       toast("✨ Distribución generada por IA","green");
-      // sync nav buttons
-      showScreen("map");
     } else {
       throw new Error("parse failed");
     }
@@ -1577,7 +1573,6 @@ async function generateWithAI() {
     STATE.grid = algorithmicAssign();
     saveState();
     showScreen("map");
-    renderGrid();
     toast("⚙️ Generado con algoritmo (IA no disponible)","yellow");
   } finally {
     setBtnLoading("btn-generate",false,"✨ Generar con IA →");
