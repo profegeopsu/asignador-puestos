@@ -2933,18 +2933,61 @@ function saveEditCurso(id) {
 function importDemo() {
   if (!confirm("¿Cargar datos de demostración? Se reemplazarán los datos actuales.")) return;
   pushHistory();
-  const perfs=["Alto","Medio","Medio","Bajo mat.","Bajo gral."];
-  const parts=["Alta","Media","Media","Baja"];
-  const gend= ["M","F","M","F","M","F","M","F","M","M","F","M","F","F","M","F","M","F","M","F","F","M","F","M","M","F","M","F","M","F","F","M","F","M","M","F","M","F"];
-  STATE.students = Array.from({length:38},(_,i)=>mkStudent({
-    id:i+1, name:"Alumno "+(i+1), gender:gend[i]||"M",
-    performance:perfs[i%5], participation:parts[i%4],
-    isTutor:i%7===0, conflict:i%9===0?"Disruptivo":i%11===0?"Moderado":"—",
-    diagnosis:i%8===0?"TDAH":i%13===0?"Dislexia":"—", frontRow:i%10===0,
-  }));
+
+  // [nombre, género, rendimiento, participación, promedio, diagnóstico, conducta, tutor, frontRow, notas]
+  const raw = [
+    ["Valentina Muñoz Rojas",       "F","Alto",      "Alta",  6.8,"—",       "—",         true,  false,""],
+    ["Benjamín Soto Pérez",         "M","Medio",     "Media", 5.4,"TDAH",    "Moderado",  false, true, "Medicado, necesita descansos"],
+    ["Catalina Vargas Fuentes",     "F","Bajo mat.", "Baja",  4.1,"Dislexia","—",         false, true, "Apoyo diferenciado en Matemática"],
+    ["Diego Fernández Castro",      "M","Medio",     "Alta",  5.9,"—",       "Leve",      false, false,""],
+    ["Isadora Pizarro Vega",        "F","Alto",      "Alta",  6.5,"—",       "—",         true,  false,""],
+    ["Francisco Morales Díaz",      "M","Bajo gral.","Baja",  3.8,"—",       "Disruptivo",false, false,"Conflicto frecuente con Diego y Tomás"],
+    ["Gabriela Reyes Álvarez",      "F","Medio",     "Alta",  5.7,"Dislexia","—",         false, false,""],
+    ["Tomás Lagos Herrera",         "M","Alto",      "Media", 6.2,"—",       "—",         true,  false,""],
+    ["Sofía Contreras Núñez",       "F","Bajo gral.","Baja",  3.5,"TEA",     "—",         false, true, "Requiere puesto fijo sin cambios"],
+    ["Matías Rojas Espinoza",       "M","Medio",     "Media", 5.1,"TDAH",    "Moderado",  false, true, ""],
+    ["Camila Ortega Molina",        "F","Alto",      "Alta",  6.7,"—",       "—",         true,  false,""],
+    ["Ignacio Flores Santana",      "M","Medio",     "Media", 5.3,"—",       "—",         false, false,""],
+    ["Martina Silva Poblete",       "F","Alto",      "Alta",  6.4,"—",       "—",         true,  false,""],
+    ["Sebastián Ramírez Torres",    "M","Bajo mat.", "Media", 4.3,"—",       "Leve",      false, false,""],
+    ["Paula Gutiérrez Bravo",       "F","Medio",     "Baja",  5.0,"—",       "—",         false, false,""],
+    ["Felipe Acosta Medina",        "M","Medio",     "Alta",  5.6,"—",       "—",         false, false,""],
+    ["Antonia Vera Jara",           "F","Alto",      "Alta",  6.9,"—",       "—",         true,  false,"Delegada de curso"],
+    ["Cristóbal Mendoza Ríos",      "M","Bajo gral.","Baja",  3.6,"TDAH",    "Disruptivo",false, false,"Conflicto con Francisco y Rodrigo"],
+    ["Fernanda Castillo Araya",     "F","Medio",     "Media", 5.2,"—",       "—",         false, false,""],
+    ["Rodrigo Vásquez Peña",        "M","Medio",     "Media", 5.0,"—",       "Disruptivo",false, false,"Conflicto con Cristóbal"],
+    ["Nicole Tapia Zamora",         "F","Bajo mat.", "Baja",  4.0,"Dislexia","—",         false, true, "Evaluación diferenciada"],
+    ["Andrés Cárdenas Fuentes",     "M","Alto",      "Alta",  6.3,"—",       "—",         true,  false,""],
+    ["Constanza Meza Villanueva",   "F","Medio",     "Media", 5.5,"—",       "—",         false, false,""],
+    ["Joaquín Moreno Cisternas",    "M","Medio",     "Media", 5.1,"—",       "Leve",      false, false,""],
+    ["Javiera Salinas Becerra",     "F","Alto",      "Alta",  6.6,"—",       "—",         true,  false,""],
+    ["Patricio Ibáñez Cornejo",     "M","Bajo gral.","Baja",  3.9,"—",       "—",         false, false,""],
+    ["Renata Quiroga Valenzuela",   "F","Medio",     "Alta",  5.8,"—",       "—",         false, false,""],
+    ["Maximiliano Leiva Naranjo",   "M","Medio",     "Media", 4.9,"—",       "—",         false, false,""],
+    ["Florencia Aguilera Sepúlveda","F","Alto",      "Alta",  6.1,"—",       "—",         true,  false,""],
+    ["Vicente Paredes Olivares",    "M","Medio",     "Baja",  4.7,"—",       "—",         false, false,""],
+    ["Daniela Fuentes Riquelme",    "F","Bajo mat.", "Media", 4.2,"Dislexia","—",         false, true, "Ampliar tiempo en pruebas"],
+    ["Emilio Sandoval Henríquez",   "M","Alto",      "Alta",  6.0,"—",       "—",         true,  false,""],
+    ["Ximena Cortés Arredondo",     "F","Medio",     "Media", 5.3,"—",       "—",         false, false,""],
+    ["Lucas Navarro Espinoza",      "M","Bajo gral.","Baja",  3.7,"TEA",     "—",         false, true, "Evitar cambios de puesto"],
+    ["Amanda Ponce Riffo",          "F","Medio",     "Alta",  5.6,"—",       "—",         false, false,""],
+    ["Hernán Tapia Zamora",         "M","Alto",      "Media", 6.2,"—",       "—",         true,  false,""],
+    ["Karla Bravo Muñoz",           "F","Medio",     "Media", 5.0,"—",       "—",         false, false,""],
+    ["Iván Campos Varela",          "M","Bajo mat.", "Baja",  4.4,"TDAH",    "Moderado",  false, true, ""],
+  ];
+
+  // Conflictos declarados (índices 0-based):
+  // Francisco(5) <-> Diego(3), Cristóbal(17) <-> Rodrigo(19), Benjamín(1) <-> Matías(9)
+  const avoid = {5:[4],3:[6],17:[20],19:[18],1:[10],9:[2]};
+
+  STATE.students = raw.map(([name,gender,performance,participation,promedio,diagnosis,conflict,isTutor,frontRow,notes],i) =>
+    mkStudent({ id:i+1, name, gender, performance, participation, promedio, diagnosis, conflict,
+                isTutor, frontRow, notes, avoidWith: avoid[i]||[] })
+  );
+
   _idCounter=39; STATE.grid=buildEmptyGrid(); STATE.locked=[];
   saveState(); renderRoster();
-  toast("📥 Demo cargado","green");
+  toast("📥 Demo cargado con datos reales","green");
 }
 
 function fitPrintText() {
@@ -3249,22 +3292,36 @@ function printSeatingChart() {
   overlay.appendChild(noPrintStyle);
   overlay.appendChild(closeBtn);
 
+  // Añadir botón cerrar al overlay (solo pantalla)
   document.body.appendChild(overlay);
 
-  // Set document title with timestamp so browser uses it as print filename
-  const ts = now.toISOString().slice(0,16).replace("T","-").replace(/:/g,"");
-  const origTitle = document.title;
-  document.title = `Mapa-Asientos-8voBásico-${ts}`;
-
-  // Fit text to container width, then print
+  // Abrir nueva ventana con @page landscape en el <head>
+  // Safari respeta @page SOLO si está presente al cargar la página
   setTimeout(() => {
     fitPrintText();
-    setTimeout(() => {
+    const cursos2=getCursos(); const curso2=cursos2.find(c=>c.id===CURRENT_CURSO_ID);
+    const titulo = `Mapa-${(curso2?.nombre||"Asientos").replace(/\s+/g,"-")}-${now.toISOString().slice(0,10)}`;
+    const pw = window.open("","_blank");
+    if (!pw) {
+      // popup bloqueado → fallback window.print()
       window.print();
-      // Restore title after print dialog closes
-      setTimeout(() => { document.title = origTitle; }, 1000);
-    }, 200);
-  }, 150);
+      return;
+    }
+    pw.document.write(`<!DOCTYPE html><html lang="es"><head>
+<meta charset="utf-8">
+<title>${titulo}</title>
+<style>
+  @page { size: letter landscape; margin: 10mm 12mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin:0; padding:0; background:white; font-family:Arial,sans-serif; }
+  button { display:none !important; }
+  #print-overlay { width:100%; min-height:100vh; display:flex; flex-direction:column; }
+</style>
+</head><body>${overlay.outerHTML}</body></html>`);
+    pw.document.close();
+    pw.focus();
+    setTimeout(() => { pw.print(); }, 500);
+  }, 200);
 }
 
 
