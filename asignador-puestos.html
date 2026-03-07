@@ -2320,7 +2320,7 @@ function setView(v) {
       // Close button
       const closeBtn=document.createElement("button");
       closeBtn.textContent="✕ Salir de vista alumno";
-      closeBtn.style.cssText="position:absolute;top:16px;right:20px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#8b949e;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);z-index:10;";
+      closeBtn.style.cssText="position:fixed;top:12px;right:16px;background:rgba(30,30,40,.85);border:1px solid rgba(255,255,255,.2);color:#ccc;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);z-index:9999;backdrop-filter:blur(6px);";
       closeBtn.onclick=()=>setView("teacher");
       overlay.appendChild(closeBtn);
       // Title
@@ -2331,7 +2331,7 @@ function setView(v) {
       // Grid container
       const gc=document.createElement("div");
       gc.id="student-grid-container";
-      gc.style.cssText="display:flex;flex-direction:column;align-items:stretch;width:100%;flex:1;min-height:0;padding:6px 10px 8px;box-sizing:border-box;";
+      gc.style.cssText="display:flex;flex-direction:column;align-items:stretch;width:100%;flex:1;min-height:0;padding:6px 10px 8px;box-sizing:border-box;overflow:hidden;";
       overlay.appendChild(gc);
       document.body.appendChild(overlay);
     }
@@ -2369,7 +2369,7 @@ function renderStudentOverlay() {
   gc.appendChild(boardEl);
 
   const gridWrap=document.createElement("div");
-  gridWrap.style.cssText="flex:1;min-height:0;display:flex;flex-direction:row;gap:clamp(4px,.6vw,10px);align-items:flex-start;width:100%;";
+  gridWrap.style.cssText="flex:1;min-height:0;display:flex;flex-direction:row;gap:clamp(4px,.6vw,10px);align-items:flex-start;width:100%;height:100%;";
 
   if(useGroups) {
     const colPairsStudent = [[0,1],[2,3],[4,5]];
@@ -2429,7 +2429,7 @@ function renderStudentOverlay() {
     const SEAT_H = "clamp(44px,5.5vh,72px)";
     for(const col of [0,1,2,3,4,5]){
       const colDiv=document.createElement("div");
-      colDiv.style.cssText="display:flex;flex-direction:column;gap:clamp(4px,.5vh,8px);flex:1;min-width:0;";
+      colDiv.style.cssText="display:flex;flex-direction:column;gap:clamp(4px,.5vh,8px);flex:1;min-width:0;height:100%;";
       for(let i=COL_SIZES[col]-1;i>=0;i--){
         const id=STATE.grid[col]?.[i];
         const s=id?getById(id):null;
@@ -2438,7 +2438,7 @@ function renderStudentOverlay() {
           `background:${s?CARD_BG:EMPTY_B};`+
           `border:2px solid ${s?CARD_BD:EMPTY_B};`+
           `border-radius:10px;display:flex;align-items:center;justify-content:center;`+
-          `padding:clamp(4px,.5vw,8px);height:${SEAT_H};box-sizing:border-box;`;
+          `padding:clamp(4px,.5vw,8px);flex:1;min-height:clamp(40px,4vh,60px);box-sizing:border-box;`;
         if(s){
           const nm=document.createElement("div");
           nm.style.cssText=`font-size:clamp(11px,1.1vw,17px);font-weight:700;color:${TEXT};text-align:center;line-height:1.2;width:100%;word-break:break-word;`;
