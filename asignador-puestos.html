@@ -1251,8 +1251,8 @@ function initDefaultStudents() {
 }
 function confirmListNumber(id, oldNum, input) {
   const newNum = parseInt(input.value);
-  if (isNaN(newNum) || newNum < 1) { input.value = oldNum; return; }
-  if (newNum === oldNum) return;
+  if (isNaN(newNum) || newNum < 1) { input.value = oldNum ?? ''; return; }
+  if (newNum === (oldNum ?? -1)) return;
 
   const s = STATE.students.find(x => x.id === id);
   const conflict = STATE.students.find(x => x.id !== id && (x.listNumber ?? 0) === newNum);
@@ -1808,9 +1808,9 @@ function renderRoster() {
 
   tbody.innerHTML = STATE.students.map((s,i)=>`
     <tr id="row-${s.id}">
-      <td><input type="number" min="1" max="99" value="${s.listNumber ?? (i+1)}"
+      <td><input type="number" min="1" max="99" value="${s.listNumber ?? ''}" placeholder="-"
           style="width:44px;text-align:center;font-weight:800;font-size:13px;color:var(--accent);background:transparent;border:1px solid transparent;border-radius:6px;padding:2px 0;"
-          onchange="confirmListNumber(${s.id},${s.listNumber ?? (i+1)},this)"
+          onchange="confirmListNumber(${s.id},${s.listNumber ?? null},this)"
           onfocus="this.style.borderColor='var(--accent)'"
           onblur="this.style.borderColor='transparent'"></td>
       <td><input type="text" style="width:130px" value="${esc(s.name)}" placeholder="Alumno ${s.id}"
@@ -2794,20 +2794,21 @@ function executePasteImport() {
       }
     } else {
       const id = ++_idCounter;
-      STATE.students.push({
-        id, name: r.nombre, gender: "M",
-        diagnosis: "—", performance: "Medio",
-        participation: "Media",
+      STATE.students.push(mkStudent({
+        id, name: r.nombre,
         promedio: r.promedio,
-        isTutor: false, conflict: "—",
-        visual: false, hearing: false, frontRow: false,
-        grupoSep: null, notes: "", listNumber: r.num ?? (i + 1)
-      });
+        listNumber: r.num ?? null
+      }));
       added++;
     }
   });
 
   saveState();
+  // Si se agregaron alumnos nuevos, limpiar el grid para evitar IDs huérfanos
+  if (added > 0) {
+    STATE.grid = buildEmptyGrid();
+    STATE.locked = [];
+  }
   renderRoster();
   document.getElementById("_paste_modal")?.remove();
   const updMsg = updated ? " · " + updated + " actualizado" + (updated!==1?"s":"") : "";
