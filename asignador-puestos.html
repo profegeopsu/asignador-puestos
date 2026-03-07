@@ -3082,246 +3082,115 @@ document.addEventListener("DOMContentLoaded",()=>{
 //  PRINT — Mapa para libro de clases (carta, B&W, solo nombre + Nº)
 // ═══════════════════════════════════════════════════════════════════
 function printSeatingChart() {
-  // Remove existing overlay if any
-  const existing = document.getElementById("print-overlay");
-  if (existing) existing.remove();
-
-  // Inject print-specific style tag for Safari landscape support
-  let _printStyle = document.getElementById("_print-page-style");
-  if (!_printStyle) {
-    _printStyle = document.createElement("style");
-    _printStyle.id = "_print-page-style";
-    document.head.appendChild(_printStyle);
-  }
-  _printStyle.textContent = `
-    @media print {
-      @page { size: letter landscape; margin: 8mm 10mm; }
-      body > *:not(#print-overlay) { display: none !important; }
-      #print-overlay { display: flex !important; }
-    }
-  `;
-
-  const overlay = document.createElement("div");
-  overlay.id = "print-overlay";
-  overlay.style.cssText = [
-    "position:fixed","inset:0","background:white","z-index:99999",
-    "display:flex","flex-direction:column","padding:0","margin:0",
-    "font-family:'Arial',sans-serif","color:#000","box-sizing:border-box",
-    "width:100vw","height:100vh","overflow:hidden"
-  ].join(";");
-
-  // ── HEADER ────────────────────────────────────────────────────────
   const now = new Date();
-  const dateStr = now.toLocaleDateString("es-CL", {
-    weekday:"long", year:"numeric", month:"long", day:"numeric"
-  });
-  const header = document.createElement("div");
-  header.style.cssText = "padding:14px 18px 8px;border-bottom:2px solid #000;display:flex;justify-content:space-between;align-items:flex-end;";
-  header.innerHTML = `
+  const dateStr = now.toLocaleDateString("es-CL",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  const cursos = getCursos();
+  const curso  = cursos.find(c=>c.id===CURRENT_CURSO_ID)||{nombre:"Curso",nivel:""};
+  const titulo = `Mapa-${(curso.nombre||"Asientos").replace(/\s+/g,"-")}-${now.toISOString().slice(0,10)}`;
+
+  // ── Generar HTML de la grilla con estilos 100% inline ──────────────
+  const PERF_BG_P  = {"Alto":"#e6f4ea","Medio":"#fff","Bajo mat.":"#fff8e6","Bajo gral.":"#fdecea","—":"#fff"};
+  const PERF_DOT_P = {"Alto":"#2da44e","Medio":"#58a6ff","Bajo mat.":"#e3b341","Bajo gral.":"#f85149","—":"#888"};
+  const PART_W_P   = {"Alta":"100%","Media":"55%","Baja":"22%"};
+  const PART_C_P   = {"Alta":"#2da44e","Media":"#e3b341","Baja":"#f85149"};
+  const GENDER_C_P = {"M":"#58a6ff","F":"#f778ba","O":"#d2a8ff"};
+
+  const colOrder = [5,4,3,2,1,0]; // izquierda=col6, derecha=col1
+
+  let colsHtml = "";
+  for (const col of colOrder) {
+    const colNum = col+1;
+    const size = COL_SIZES[col];
+    let seatsHtml = "";
+    for (let row=0; row<size; row++) {
+      const id = STATE.grid[col]?.[row];
+      const s  = id ? getById(id) : null;
+      if (s) {
+        const parts = (s.name||`Alumno ${s.id}`).trim().split(" ");
+        const firstName = parts[0]||"";
+        const lastName  = parts.slice(1).join(" ")||"";
+        const num = String(s.id).padStart(2,"0");
+        const bg  = PERF_BG_P[s.performance]||"#fff";
+        const dot = PERF_DOT_P[s.performance]||"#888";
+        const partW = PART_W_P[s.participation]||"55%";
+        const partC = PART_C_P[s.participation]||"#888";
+        const gColor= GENDER_C_P[s.gender]||"#888";
+        const diagHtml = s.diagnosis&&s.diagnosis!=="—"
+          ? `<div style="font-size:7px;color:#7c3aed;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.diagnosis}</div>` : "";
+        const notesHtml= s.notes
+          ? `<div style="font-size:7px;color:#888;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📝 ${s.notes}</div>` : "";
+        const tutorHtml= s.isTutor ? `<span style="color:#2da44e;font-size:9px;">★</span>` : "";
+        seatsHtml += `
+          <div style="display:flex;flex-direction:row;align-items:stretch;border:1.5px solid #999;border-radius:5px;background:${bg};overflow:hidden;flex:1;">
+            <div style="min-width:28px;width:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #ddd;padding:3px 2px;gap:1px;flex-shrink:0;">
+              <div style="font-size:18px;font-weight:900;color:#1f6feb;font-family:Arial;line-height:1;">${num}</div>
+              <div style="font-size:8px;font-weight:800;color:${gColor};line-height:1;">${s.gender}</div>
+            </div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:4px 5px 3px;gap:1px;">
+              <div style="font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${firstName}</div>
+              <div style="font-size:10px;font-weight:400;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lastName}</div>
+              ${diagHtml}${notesHtml}
+              <div style="display:flex;align-items:center;gap:3px;margin-top:auto;padding-top:2px;">
+                <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block;"></span>
+                <div style="flex:1;height:3px;background:#eee;border-radius:2px;position:relative;">
+                  <div style="position:absolute;left:0;top:0;height:100%;width:${partW};background:${partC};border-radius:2px;"></div>
+                </div>
+                ${tutorHtml}
+              </div>
+            </div>
+          </div>`;
+      } else {
+        seatsHtml += `<div style="flex:1;border:1.5px dashed #ccc;border-radius:5px;background:#fafafa;"></div>`;
+      }
+    }
+    colsHtml += `
+      <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;">
+        ${seatsHtml}
+        <div style="font-size:9px;font-weight:900;text-align:center;border-top:1.5px solid #000;padding-top:3px;margin-top:2px;letter-spacing:.06em;">COL ${colNum}</div>
+      </div>`;
+  }
+
+  const html = `<!DOCTYPE html><html lang="es"><head>
+<meta charset="utf-8"><title>${titulo}</title>
+<style>
+  @page { size: letter landscape; margin: 8mm 10mm; }
+  * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  html,body { margin:0; padding:0; width:100%; height:100%; font-family:Arial,sans-serif; background:white; }
+  #wrap { width:100%; height:100vh; display:flex; flex-direction:column; }
+  #grid { display:flex; flex-direction:row; gap:6px; flex:1; align-items:stretch; }
+</style>
+</head><body>
+<div id="wrap">
+  <div style="padding:8px 10px 6px;border-bottom:2px solid #000;display:flex;justify-content:space-between;align-items:flex-end;flex-shrink:0;">
     <div>
-      <div style="font-size:20px;font-weight:900;letter-spacing:-.01em;line-height:1;">MAPA DE ASIENTOS</div>
-      <div style="font-size:13px;font-weight:700;color:#333;margin-top:3px;letter-spacing:.02em;" id="print-curso-name">—</div>
+      <div style="font-size:18px;font-weight:900;line-height:1;">MAPA DE ASIENTOS</div>
+      <div style="font-size:11px;font-weight:700;color:#333;margin-top:2px;">${curso.nombre}${curso.nivel?" · "+curso.nivel:""}</div>
     </div>
-    <div style="text-align:right;font-size:10px;color:#444;line-height:1.6;">
+    <div style="text-align:right;font-size:9px;color:#555;line-height:1.6;">
       <div style="font-weight:700;text-transform:capitalize;">${dateStr}</div>
       <div>Libro de Clases · Distribución de puestos</div>
-    </div>`;
-  overlay.appendChild(header);
-  // Set dynamic course name
-  const cursos=getCursos(); const curso=cursos.find(c=>c.id===CURRENT_CURSO_ID);
-  const cnEl=overlay.querySelector("#print-curso-name");
-  if(cnEl && curso) cnEl.textContent=(curso.nombre||"")+(curso.nivel?" · "+curso.nivel:"");
+    </div>
+  </div>
+  <div style="font-size:8px;color:#666;padding:4px 10px;display:flex;gap:16px;flex-shrink:0;border-bottom:1px solid #eee;">
+    <span>● COL 1 (derecha) → COL 6 (izquierda)</span>
+    <span>● Fila superior: lejos pizarra</span>
+    <span>● Fila inferior: cerca pizarra</span>
+  </div>
+  <div id="grid">${colsHtml}</div>
+  <div style="background:#111;color:white;text-align:center;padding:5px;font-size:10px;font-weight:900;letter-spacing:.25em;flex-shrink:0;">▌   P I Z A R R Ó N   —   D O C E N T E   ▐</div>
+  <div style="padding:3px 10px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:7px;color:#999;flex-shrink:0;">
+    <span>AsignadorPuestos · uso interno</span>
+    <span>Impreso: ${now.toLocaleString("es-CL")}</span>
+  </div>
+</div>
+</body></html>`;
 
-  // ── GRID AREA ─────────────────────────────────────────────────────
-  const body = document.createElement("div");
-  body.style.cssText = "flex:1;display:flex;flex-direction:column;padding:10px 18px 8px;";
-
-  // Info row
-  const info = document.createElement("div");
-  info.style.cssText = "display:flex;gap:20px;margin-bottom:10px;font-size:9px;color:#555;align-items:center;";
-  info.innerHTML = `
-    <span>● Columnas numeradas COL 1 (derecha) → COL 6 (izquierda)</span>
-    <span>● Fila superior: más alejada de la pizarra</span>
-    <span>● Fila inferior: más cercana a la pizarra</span>`;
-  body.appendChild(info);
-
-  // Seat grid container — columns side by side
-  const gridContainer = document.createElement("div");
-  gridContainer.style.cssText = "display:flex;flex-direction:row;gap:8px;flex:1;align-items:flex-end;justify-content:center;width:100%;";
-
-  // PROFESOR view: COL1 a la derecha → screen left-to-right = col5,col4,col3,col2,col1,col0
-  const colScreenOrder = [5,4,3,2,1,0];
-
-  for (const col of colScreenOrder) {
-    const colNum = col + 1; // COL 1..6
-    const size = COL_SIZES[col];
-
-    const colWrap = document.createElement("div");
-    colWrap.style.cssText = "display:flex;flex-direction:column;gap:5px;align-items:stretch;flex:1;min-width:0;max-width:160px;";
-
-    // Seats — row 0 top (lejos pizarra), row size-1 bottom (cerca pizarra)
-    for (let row = 0; row < size; row++) {
-      const id = STATE.grid[col]?.[row];
-      const s = id ? getById(id) : null;
-
-      const seat = document.createElement("div");
-      seat.style.cssText = [
-        "width:100%","box-sizing:border-box",
-        "border:1.5px solid #000","border-radius:5px",
-        "background:" + (s ? "white" : "#f8f8f8"),
-        "min-height:72px","max-height:none",
-        "page-break-inside:avoid","overflow:hidden",
-        "display:flex","flex-direction:column","justify-content:center"
-      ].join(";");
-
-      if (s) {
-        // Split name into first name / surname
-        const nameParts = (s.name || `Alumno ${s.id}`).trim().split(" ");
-        const firstName = nameParts[0] || "";
-        const lastName  = nameParts.slice(1).join(" ") || "";
-        const listNum   = String(s.id).padStart(2,"0");
-
-        // 2-row × 4-col grid inside the seat
-        // Col 0 (narrow): row0="Nº"  row1=number
-        // Col 1-3 (wide):  row0=nombre  row1=apellido
-        seat.style.display = "grid";
-        seat.style.gridTemplateColumns = "38px 1fr 1fr 1fr";
-        seat.style.gridTemplateRows = "1fr 1fr";
-        seat.style.gap = "0";
-        seat.style.alignItems = "center";
-        seat.style.padding = "5px 6px";
-
-        // Col 0, rows 1-2 merged — "Nº" + number centered both axes
-        const numCell = document.createElement("div");
-        numCell.style.cssText = [
-          "grid-column:1","grid-row:1/3",
-          "display:flex","flex-direction:column",
-          "align-items:center","justify-content:center",
-          "border-right:1.5px solid #ccc",
-          "padding-right:5px","gap:1px"
-        ].join(";");
-
-        const lblNo = document.createElement("div");
-        lblNo.style.cssText = "font-size:7.5px;font-weight:900;color:#666;text-align:center;font-family:'Arial',sans-serif;letter-spacing:.06em;line-height:1;";
-        lblNo.textContent = "Nº";
-
-        const numEl = document.createElement("div");
-        numEl.style.cssText = "font-size:21px;font-weight:900;color:#000;text-align:center;font-family:'Arial',sans-serif;line-height:1;";
-        numEl.textContent = listNum;
-
-        numCell.appendChild(lblNo);
-        numCell.appendChild(numEl);
-
-        // placeholder so old divider append doesn't break
-        const divider = document.createElement("div");
-        divider.style.cssText = "display:none";
-
-        // [1-3, 0] — first name spanning 3 cols, row 1
-        const nameEl = document.createElement("div");
-        nameEl.style.cssText = "grid-column:2/5;grid-row:1;font-size:18px;font-weight:700;color:#000;font-family:'Arial',sans-serif;line-height:1.1;align-self:end;padding-bottom:2px;overflow:hidden;white-space:nowrap;padding-left:6px;";
-        nameEl.textContent = firstName;
-
-        // [1-3, 1] — surname spanning 3 cols, row 2
-        const surnEl = document.createElement("div");
-        surnEl.style.cssText = "grid-column:2/5;grid-row:2;font-size:18px;font-weight:400;color:#000;font-family:'Arial',sans-serif;line-height:1.1;align-self:start;padding-top:2px;overflow:hidden;white-space:nowrap;padding-left:6px;border-top:1px solid #ddd;";
-        surnEl.textContent = lastName || firstName; // fallback if single word name
-
-        seat.appendChild(numCell);
-        seat.appendChild(nameEl);
-        seat.appendChild(surnEl);
-
-        // Scale font to fill available width — called after DOM append
-        // Store refs for post-render fit
-        nameEl.dataset.fit = "true";
-        surnEl.dataset.fit = "true";
-      } else {
-        // Empty seat — dashed
-        seat.style.border = "1.5px dashed #bbb";
-        seat.style.background = "#fafafa";
-        const empty = document.createElement("div");
-        empty.style.cssText = "font-size:9px;color:#ccc;text-align:center;width:100%;";
-        empty.textContent = "—";
-        seat.appendChild(empty);
-      }
-      colWrap.appendChild(seat);
-    }
-
-    // Column label — BELOW the seats
-    const colLbl = document.createElement("div");
-    colLbl.style.cssText = "font-size:9px;font-weight:900;color:#000;letter-spacing:.08em;margin-top:4px;border-top:1.5px solid #000;padding-top:3px;width:100%;text-align:center;";
-    colLbl.textContent = `COL ${colNum}`;
-    colWrap.appendChild(colLbl);
-
-    gridContainer.appendChild(colWrap);
-  }
-  body.appendChild(gridContainer);
-
-  // ── PIZARRA (abajo) ───────────────────────────────────────────────
-  const pizarra = document.createElement("div");
-  pizarra.style.cssText = [
-    "margin-top:10px","border:2.5px solid #000","border-radius:6px",
-    "padding:7px 0","text-align:center",
-    "font-size:12px","font-weight:900","letter-spacing:.25em",
-    "background:#1a1a1a","color:white","flex-shrink:0"
-  ].join(";");
-  pizarra.textContent = "▌   P I Z A R R Ó N   —   D O C E N T E   ▐";
-  body.appendChild(pizarra);
-
-  overlay.appendChild(body);
-
-  // ── FOOTER ────────────────────────────────────────────────────────
-  const footer = document.createElement("div");
-  footer.style.cssText = "padding:5px 18px 8px;border-top:1px solid #ccc;display:flex;justify-content:space-between;font-size:8px;color:#888;";
-  footer.innerHTML = `<span>AsignadorPuestos · uso interno</span><span>Impreso: ${now.toLocaleString("es-CL")}</span>`;
-  overlay.appendChild(footer);
-
-  // ── CLOSE BUTTON (screen only) ────────────────────────────────────
-  const closeBtn = document.createElement("button");
-  closeBtn.textContent = "✕ Cerrar previsualización";
-  closeBtn.style.cssText = [
-    "position:fixed","top:14px","right:18px","z-index:100000",
-    "background:#333","color:white","border:none","border-radius:7px",
-    "padding:7px 16px","font-size:12px","font-weight:700",
-    "cursor:pointer","font-family:Arial,sans-serif"
-  ].join(";");
-  closeBtn.onclick = () => overlay.remove();
-  // Hide on print
-  closeBtn.className = "no-print";
-  const noPrintStyle = document.createElement("style");
-  noPrintStyle.textContent = "@media print { .no-print { display:none !important; } }";
-  overlay.appendChild(noPrintStyle);
-  overlay.appendChild(closeBtn);
-
-  // Añadir botón cerrar al overlay (solo pantalla)
-  document.body.appendChild(overlay);
-
-  // Abrir nueva ventana con @page landscape en el <head>
-  // Safari respeta @page SOLO si está presente al cargar la página
-  setTimeout(() => {
-    fitPrintText();
-    const cursos2=getCursos(); const curso2=cursos2.find(c=>c.id===CURRENT_CURSO_ID);
-    const titulo = `Mapa-${(curso2?.nombre||"Asientos").replace(/\s+/g,"-")}-${now.toISOString().slice(0,10)}`;
-    const pw = window.open("","_blank");
-    if (!pw) {
-      // popup bloqueado → fallback window.print()
-      window.print();
-      return;
-    }
-    pw.document.write(`<!DOCTYPE html><html lang="es"><head>
-<meta charset="utf-8">
-<title>${titulo}</title>
-<style>
-  @page { size: letter landscape; margin: 10mm 12mm; }
-  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { margin:0; padding:0; background:white; font-family:Arial,sans-serif; }
-  button { display:none !important; }
-  #print-overlay { width:100%; min-height:100vh; display:flex; flex-direction:column; }
-</style>
-</head><body>${overlay.outerHTML}</body></html>`);
-    pw.document.close();
-    pw.focus();
-    setTimeout(() => { pw.print(); }, 500);
-  }, 200);
+  const pw = window.open("","_blank");
+  if (!pw) { alert("Permite ventanas emergentes en Safari para imprimir"); return; }
+  pw.document.write(html);
+  pw.document.close();
+  pw.focus();
+  setTimeout(()=>{ pw.print(); }, 600);
 }
 
 
