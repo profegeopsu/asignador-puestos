@@ -2196,29 +2196,40 @@ function buildSeatEl(col,row) {
       infoCol.appendChild(nmLast);
     }
 
-    // Diagnóstico NEE
+    // Diagnóstico NEE con ícono
     if (s.diagnosis!=="—") {
+      const NEE_ICONS={"TDAH":"⚡","TEA":"🔵","Dislexia":"📖","Baja visión":"👁","Hipoacusia":"👂"};
+      const neeIcon=NEE_ICONS[s.diagnosis]||"🧩";
       const dg=document.createElement("div");
-      dg.style.cssText="font-size:9px;font-weight:700;color:var(--violet);line-height:1;padding:1px 4px;background:rgba(188,140,255,.12);border-radius:3px;display:inline-block;width:fit-content;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
-      dg.textContent=s.diagnosis;
+      dg.style.cssText="font-size:9px;font-weight:700;color:var(--violet);line-height:1;padding:1px 5px 1px 3px;background:rgba(188,140,255,.15);border:1px solid rgba(188,140,255,.25);border-radius:10px;display:inline-flex;align-items:center;gap:3px;width:fit-content;max-width:100%;overflow:hidden;";
+      dg.innerHTML=`<span style="font-size:9px;line-height:1;">${neeIcon}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.diagnosis}</span>`;
       infoCol.appendChild(dg);
     }
 
-    // Promedio (si existe)
+    // Promedio con mini barra
     if (s.promedio!==null&&s.promedio!==undefined) {
-      const prom=document.createElement("div");
       const pval=parseFloat(s.promedio);
       const pcol=pval>=5.5?"#3fb950":pval>=4?"#e3b341":"#f85149";
-      prom.style.cssText="font-size:10px;font-weight:700;color:"+pcol+";line-height:1;";
-      prom.textContent="Prom: "+pval.toFixed(1);
-      infoCol.appendChild(prom);
+      const promWrap=document.createElement("div");
+      promWrap.style.cssText="display:flex;flex-direction:column;gap:2px;";
+      const promLbl=document.createElement("div");
+      promLbl.style.cssText="font-size:10px;font-weight:700;color:"+pcol+";line-height:1;";
+      promLbl.textContent="Prom: "+pval.toFixed(1);
+      const promBarBg=document.createElement("div");
+      promBarBg.style.cssText="height:3px;border-radius:2px;background:rgba(255,255,255,.08);width:100%;overflow:hidden;";
+      const promBarFill=document.createElement("div");
+      promBarFill.style.cssText="height:3px;border-radius:2px;background:"+pcol+";width:"+Math.round(pval/7*100)+"%;";
+      promBarBg.appendChild(promBarFill);
+      promWrap.appendChild(promLbl);
+      promWrap.appendChild(promBarBg);
+      infoCol.appendChild(promWrap);
     }
 
     // Nota del alumno
     if (s.notes) {
       const nt=document.createElement("div");
       nt.style.cssText="font-size:9px;color:var(--muted);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;";
-      nt.textContent="📝 "+s.notes;
+      nt.textContent="💬 "+s.notes;
       infoCol.appendChild(nt);
     }
 
@@ -2232,17 +2243,25 @@ function buildSeatEl(col,row) {
     pf.style.background=PART_COLOR[s.participation];
     pf.style.width=s.participation==="Alta"?"100%":s.participation==="Media"?"55%":"22%";
     pb.appendChild(pf);
-    botRow.appendChild(dt); botRow.appendChild(pb);
-    // Tutor star inline
+    // Tutor: birrete 🎓 en vez de ★
     if (s.isTutor) {
       const star=document.createElement("span");
-      star.style.cssText="font-size:9px;color:var(--green);flex-shrink:0;";
-      star.textContent="★";
+      star.style.cssText="font-size:11px;flex-shrink:0;line-height:1;";
+      star.textContent="🎓";
+      star.title="Tutor/a";
       botRow.appendChild(star);
     }
     infoCol.appendChild(botRow);
     el.appendChild(infoCol);
 
+    // Conflicto badge esquina (solo en modo filas, para no duplicar con borde)
+    if (s.conflict!=="—"&&STATE.groupMode!=="groups") {
+      const cfBadge=document.createElement("div");
+      cfBadge.style.cssText="position:absolute;top:3px;right:"+(s.grupoSep?"18px":"3px")+";font-size:8px;line-height:1;z-index:2;opacity:.85;";
+      cfBadge.textContent="⚡";
+      cfBadge.title="Conflicto: "+s.conflict;
+      el.appendChild(cfBadge);
+    }
     // Grupo separación badge (esquina sup derecha)
     if (s.grupoSep) {
       const gb=document.createElement("div"); gb.className="grupo-badge";
