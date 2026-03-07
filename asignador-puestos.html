@@ -249,7 +249,7 @@
   .sp-section-body { padding:8px; }
   .sp-section-body.collapsed-body { display:none; }
   /* Mapa ocupa el resto */
-  #map-grid-area { flex:1; min-width:0; }
+  #map-grid-area { flex:1; min-width:0; overflow:visible; }
   /* Nota rápida textarea */
   .sp-note-area {
     width:100%; background:var(--surface2); border:1px solid var(--border2);
@@ -896,7 +896,7 @@
       </div>
 
       <!-- ══ ÁREA DEL MAPA ══ -->
-      <div id="map-grid-area" style="min-width:0;flex:1;overflow:hidden;">
+      <div id="map-grid-area" style="min-width:0;flex:1;overflow:visible;">
         <div class="card" style="padding:16px; position:relative; overflow:visible; min-width:0;">
           <div id="board-top"></div>
           <div class="zoom-wrap">
