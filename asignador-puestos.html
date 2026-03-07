@@ -1250,7 +1250,55 @@ function initDefaultStudents() {
   STATE.students = Array.from({length:38},(_,i)=>mkStudent({id:i+1,name:"Alumno "+(i+1),listNumber:i+1}));
   _idCounter = 39;
 }
-function addStudent() {
+function confirmListNumber(id, oldNum, input) {
+  const newNum = parseInt(input.value);
+  if (isNaN(newNum) || newNum < 1) { input.value = oldNum; return; }
+  if (newNum === oldNum) return;
+
+  const s = STATE.students.find(x => x.id === id);
+  const conflict = STATE.students.find(x => x.id !== id && (x.listNumber ?? 0) === newNum);
+
+  const ov = document.createElement("div");
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);";
+
+  const conflictMsg = conflict
+    ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;font-size:11px;color:#f85149;">
+        ⚠️ El N° <strong>${newNum}</strong> ya está asignado a <strong>${conflict.name||"otro alumno"}</strong>
+       </div>`
+    : "";
+
+  ov.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+      <div style="font-size:24px;text-align:center;margin-bottom:10px;">🔢</div>
+      <div style="font-size:14px;font-weight:800;text-align:center;margin-bottom:6px;">¿Cambiar número de lista?</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">
+        <strong style="color:var(--text);">${s?.name||"Alumno"}</strong><br>
+        N° <strong style="color:var(--accent);">${oldNum}</strong>
+        → N° <strong style="color:var(--accent);">${newNum}</strong>
+      </div>
+      ${conflictMsg}
+      <div style="display:flex;gap:10px;margin-top:18px;">
+        <button id="_ln_cancel" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;">Cancelar</button>
+        <button id="_ln_confirm" style="flex:1;padding:9px;border-radius:8px;border:none;background:var(--accent);color:white;font-size:12px;font-weight:800;cursor:pointer;">Confirmar</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(ov);
+
+  document.getElementById("_ln_cancel").onclick = () => {
+    input.value = oldNum;
+    ov.remove();
+  };
+  document.getElementById("_ln_confirm").onclick = () => {
+    updateStudent(id, "listNumber", newNum);
+    ov.remove();
+  };
+  ov.addEventListener("click", e => {
+    if (e.target === ov) { input.value = oldNum; ov.remove(); }
+  });
+}
+
+
   const maxNum = STATE.students.reduce((m,s)=>Math.max(m, s.listNumber||0), 0);
   STATE.students.push(mkStudent({ listNumber: maxNum + 1 }));
   saveState(); renderRoster();
@@ -1771,7 +1819,7 @@ function renderRoster() {
     <tr id="row-${s.id}">
       <td><input type="number" min="1" max="99" value="${s.listNumber ?? (i+1)}"
           style="width:44px;text-align:center;font-weight:800;font-size:13px;color:var(--accent);background:transparent;border:1px solid transparent;border-radius:6px;padding:2px 0;"
-          onchange="updateStudent(${s.id},'listNumber',+this.value)"
+          onchange="confirmListNumber(${s.id},${s.listNumber ?? (i+1)},this)"
           onfocus="this.style.borderColor='var(--accent)'"
           onblur="this.style.borderColor='transparent'"></td>
       <td><input type="text" style="width:130px" value="${esc(s.name)}" placeholder="Alumno ${s.id}"
