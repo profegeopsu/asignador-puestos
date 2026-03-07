@@ -3248,12 +3248,19 @@ function printSeatingChart(simpleMode) {
   if (simpleMode) {
     // ── Modo simple: reconstruir grid con solo número + nombre ──
     const tempGrid = document.createElement("div");
-    tempGrid.style.cssText = "display:flex;flex-direction:row;gap:5px;align-items:flex-start;width:100%;flex:1;min-height:0;";
+    tempGrid.style.cssText = "display:flex;flex-direction:row;gap:5px;align-items:flex-end;width:100%;flex:1;min-height:0;";
 
     for (let col = 0; col < NUM_COLS; col++) {
       const colDiv = document.createElement("div");
       colDiv.style.cssText = "display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;";
       const rows = COL_SIZES[col];
+      const maxRows = Math.max(...COL_SIZES);
+      // Rellenar con celdas vacías para igualar altura con columnas más largas
+      for (let pad = rows; pad < maxRows; pad++) {
+        const ghost = document.createElement("div");
+        ghost.style.cssText = "border:1.5px solid transparent;border-radius:6px;min-height:52px;box-sizing:border-box;";
+        colDiv.appendChild(ghost);
+      }
       for (let row = rows - 1; row >= 0; row--) {
         const sid = STATE.grid[col]?.[row];
         const s   = sid ? getById(sid) : null;
