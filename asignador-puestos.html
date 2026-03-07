@@ -1495,14 +1495,10 @@ function algorithmicAssign() {
   });
 
   // Pass 4: remaining
-  const remaining=sorted.filter(s=>findStudentPosition(s.id)===null&&
-    !disruptivos.includes(s)&&!backStudents.includes(s)&&!frontStudents.includes(s)
-  );
+  const placed = s => { for(let c=0;c<NUM_COLS;c++) for(let r=0;r<COL_SIZES[c];r++) if(g[c][r]===s.id) return true; return false; };
+  const remaining=sorted.filter(s=>!placed(s));
   // Also handle unplaced from previous passes
-  const allUnplaced=[...frontStudents,...backStudents,...disruptivos,...remaining].filter(s=>{
-    for(let c=0;c<NUM_COLS;c++) for(let r=0;r<COL_SIZES[c];r++) if(g[c][r]===s.id) return false;
-    return true;
-  });
+  const allUnplaced=[...remaining].filter(s=>!placed(s));
   allUnplaced.forEach(s=>{
     const seat=bestSeat(s,allSeats);
     if(seat) place(seat[0],seat[1],s.id);
@@ -2247,7 +2243,7 @@ function buildSeatEl(col,row) {
     // Número grande
     const numEl=document.createElement("div");
     numEl.style.cssText="font-size:22px;font-weight:900;color:var(--accent);font-family:var(--mono);line-height:1;text-align:center;";
-    numEl.textContent=s.id;
+    numEl.textContent=s.listNumber ?? s.id;
     // Género
     const gdSmall=document.createElement("div");
     gdSmall.style.cssText="font-size:10px;font-weight:800;line-height:1;";
@@ -2421,7 +2417,7 @@ function renderDetailCard() {
           width:40px;height:40px;border-radius:8px;background:rgba(88,166,255,.12);
           border:1px solid rgba(88,166,255,.3);flex-shrink:0;">
           <div style="font-size:7px;font-weight:800;color:var(--accent);letter-spacing:.05em;text-transform:uppercase;line-height:1;">Nº</div>
-          <div style="font-size:16px;font-weight:900;color:var(--accent);line-height:1.1;">${s.id}</div>
+          <div style="font-size:16px;font-weight:900;color:var(--accent);line-height:1.1;">${s.listNumber ?? s.id}</div>
         </div>
         <div>
           <div style="font-weight:800;font-size:14px;">${s.name||`Alumno ${s.id}`}</div>
@@ -2431,7 +2427,7 @@ function renderDetailCard() {
       <button onclick="selectSeat(${s.id})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;">✕</button>
     </div>
     <div class="detail-grid">
-      ${[["Nº Lista",s.id,"var(--accent)"],["Rendimiento",s.performance,PERF_COLOR[s.performance]],["Promedio",s.promedio!=null?s.promedio.toFixed(1)+"  ⬥":"—","var(--yellow)"],["Participación",s.participation,PART_COLOR[s.participation]],["Conducta",s.conflict,CONF_CLR[s.conflict]],["Tutor",s.isTutor?"Sí":"No",s.isTutor?"var(--green)":"var(--dim)"]].map(([k,v,c])=>`
+      ${[["Nº Lista",s.listNumber ?? s.id,"var(--accent)"],["Rendimiento",s.performance,PERF_COLOR[s.performance]],["Promedio",s.promedio!=null?s.promedio.toFixed(1)+"  ⬥":"—","var(--yellow)"],["Participación",s.participation,PART_COLOR[s.participation]],["Conducta",s.conflict,CONF_CLR[s.conflict]],["Tutor",s.isTutor?"Sí":"No",s.isTutor?"var(--green)":"var(--dim)"]].map(([k,v,c])=>`
         <div class="detail-item"><div class="detail-key">${k}</div><div class="detail-val" style="color:${c}">${v}</div></div>`).join("")}
     </div>
     ${s.preferredWith.length?`<div class="pref-section"><div class="pref-title" style="color:var(--green);">✅ Prefiere con</div><div class="pref-names">${s.preferredWith.map(id=>getById(id)?.name||`#${id}`).join(", ")}</div></div>`:""}
