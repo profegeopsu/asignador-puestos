@@ -469,6 +469,7 @@
   ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
 
   /* ── PRINT STYLES ── */
+  @page { size: letter landscape; margin: 10mm; }
   @media print {
     body * { visibility: hidden !important; }
     #print-overlay, #print-overlay * { visibility: visible !important; }
@@ -480,11 +481,6 @@
       margin: 0 !important;
       padding: 0 !important;
     }
-    @page {
-      size: letter landscape;
-      margin: 8mm 10mm 8mm 10mm;
-    }
-    /* Safari necesita estas reglas en el body también */
     body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   }
 </style>
