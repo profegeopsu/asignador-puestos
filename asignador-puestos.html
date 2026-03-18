@@ -2065,7 +2065,7 @@ function renderGrid() {
       ${[["standard","Filas"],["groups","Grupos"]].map(([v,l])=>`
         <button class="tab-btn ${STATE.groupMode===v?"active":""}" onclick="setGroupMode('${v}')">${l}</button>`).join("")}
     </div>
-    ${STATE.groupMode==="groups"?`<button class="btn btn-ghost btn-sm" onclick="showSorteo()" style="margin-left:6px;">🎲 Sortear</button>`:""}
+    <button class="btn btn-ghost btn-sm" onclick="showSorteo()" style="margin-left:6px;visibility:${STATE.groupMode==="groups"?"visible":"hidden"};">🎲 Sortear</button>
   `;
 
   // heatmap controls visibility
@@ -2665,6 +2665,10 @@ function setHeatVar(v) {
 // ═══════════════════════════════════════════════════════════════════
 //  SORTEO DE GRUPO / ALUMNO
 // ═══════════════════════════════════════════════════════════════════
+let _sorteoRecentGroups = [];      // últimos 2 grupos sorteados (cooldown)
+let _sorteoLastStudent  = {};      // { gNum: lastWinnerId } — no repetir consecutivo
+let _sorteoAbsent       = new Set(); // ids de alumnos ausentes (persiste en la sesión)
+
 function showSorteo() {
   const ex = document.getElementById("_sorteo_modal");
   if (ex) ex.remove();
@@ -2677,7 +2681,7 @@ function showSorteo() {
     <div style="font-size:12px;font-weight:800;color:rgba(255,255,255,.4);letter-spacing:.12em;text-transform:uppercase;">🎲 Sortear grupo</div>
     <div style="font-size:10px;color:rgba(255,255,255,.25);margin-top:-18px;letter-spacing:.05em;">— vista alumno · pizarrón arriba —</div>
     <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:700px;padding:0 20px;">
-      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.2);letter-spacing:.1em;text-transform:uppercase;align-self:center;padding:4px 16px;border-bottom:1px solid rgba(255,255,255,.1);width:100%;text-align:center;">▌ PIZARRÓN ▐</div>
+      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.2);letter-spacing:.1em;text-transform:uppercase;padding:4px 16px;border-bottom:1px solid rgba(255,255,255,.1);width:100%;text-align:center;">▌ PIZARRÓN ▐</div>
       <div id="_sorteo_grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%;"></div>
     </div>
     <div id="_sorteo_result" style="font-size:30px;font-weight:900;color:#fff;min-height:44px;text-align:center;letter-spacing:.05em;"></div>
@@ -2707,64 +2711,67 @@ function _sorteoRenderGroups(activeGroup) {
   const container = document.getElementById("_sorteo_grid");
   if (!container) return;
   container.innerHTML = "";
-  // Order matching student view: pizarrón at top, 3 col-pairs left→right, front groups first
-  // Col pair [0,1]=left, [2,3]=center, [4,5]=right → groups: G1,G4,G7 | G2,G5,G8 | G3,G6,G9
   const displayOrder = [1,4,7, 2,5,8, 3,6,9];
   displayOrder.forEach(gNum => {
     const gc = GROUP_COLORS[gNum] || "#555";
     const students = _sorteoGetGroupStudents(gNum);
-    const isActive = activeGroup === gNum;
+    const isActive  = activeGroup === gNum;
+    const isCool    = _sorteoRecentGroups.includes(gNum);
     const card = document.createElement("div");
     card.id = `_sg_${gNum}`;
     card.style.cssText = `
-      border:2px solid ${gc};border-radius:16px;padding:clamp(14px,2vh,28px) clamp(10px,1.5vw,20px);text-align:center;
-      background:${isActive ? gc+"44" : "rgba(255,255,255,.04)"};
-      color:${isActive ? "#fff" : "rgba(255,255,255,.5)"};
+      border:2px solid ${isCool ? "rgba(255,255,255,.12)" : gc};
+      border-radius:16px;padding:clamp(14px,2vh,28px) clamp(10px,1.5vw,20px);text-align:center;
+      background:${isActive ? gc+"44" : isCool ? "rgba(255,255,255,.02)" : "rgba(255,255,255,.04)"};
+      color:${isActive ? "#fff" : isCool ? "rgba(255,255,255,.2)" : "rgba(255,255,255,.5)"};
       transition:background .08s,transform .1s,box-shadow .1s;
       transform:${isActive ? "scale(1.1)" : "scale(1)"};
       box-shadow:${isActive ? "0 0 32px "+gc+"99,0 0 8px "+gc+"44" : "none"};
-      cursor:default;
+      cursor:default;position:relative;
     `;
     card.innerHTML = `
-      <div style="font-size:clamp(28px,4vw,48px);font-weight:900;color:${isActive?"#fff":gc};line-height:1;">G${gNum}</div>
-      <div style="font-size:clamp(10px,1.1vw,14px);margin-top:4px;opacity:.7;">${students.length} alumno${students.length!==1?"s":""}</div>
+      <div style="font-size:clamp(28px,4vw,48px);font-weight:900;color:${isActive?"#fff":isCool?"rgba(255,255,255,.18)":gc};line-height:1;">G${gNum}</div>
+      <div style="font-size:clamp(10px,1.1vw,14px);margin-top:4px;opacity:.6;">${students.length} alumno${students.length!==1?"s":""}</div>
+      ${isCool ? `<div style="font-size:9px;margin-top:4px;color:rgba(255,255,255,.3);letter-spacing:.06em;">en pausa</div>` : ""}
     `;
     container.appendChild(card);
   });
 }
 
 function _sorteoSpinGroups() {
-  const result = document.getElementById("_sorteo_result");
+  const result  = document.getElementById("_sorteo_result");
   const actions = document.getElementById("_sorteo_actions");
   actions.innerHTML = "";
   result.textContent = "";
 
-  const groupNums = Object.keys(SEAT_GROUPS).map(Number);
-  const total = 28;
-  let step = 0;
-  let current = -1;
-  const winner = groupNums[Math.floor(Math.random() * groupNums.length)];
+  const allGroups = Object.keys(SEAT_GROUPS).map(Number);
+  // Exclude cooldown groups; if all are in cooldown, use all
+  let pool = allGroups.filter(g => !_sorteoRecentGroups.includes(g));
+  if (!pool.length) pool = allGroups;
+
+  const total  = 28;
+  let step     = 0;
+  let current  = -1;
+  const winner = pool[Math.floor(Math.random() * pool.length)];
 
   function tick() {
-    // Pick next group (avoid repeating same)
+    // During animation cycle through all groups for visual effect
     let next = current;
-    while (next === current && groupNums.length > 1) next = groupNums[Math.floor(Math.random() * groupNums.length)];
-    // On last steps force convergence toward winner
+    while (next === current && allGroups.length > 1) next = allGroups[Math.floor(Math.random() * allGroups.length)];
     if (step >= total - 1) next = winner;
     current = next;
     _sorteoRenderGroups(current);
-
     step++;
     if (step < total) {
-      const progress = step / total;
-      const delay = 60 + 600 * Math.pow(progress, 2.2);
+      const delay = 60 + 600 * Math.pow(step / total, 2.2);
       setTimeout(tick, delay);
     } else {
-      // Final: winner
+      // Register cooldown
+      _sorteoRecentGroups.push(winner);
+      if (_sorteoRecentGroups.length > 2) _sorteoRecentGroups.shift();
       _sorteoRenderGroups(winner);
       const gc = GROUP_COLORS[winner] || "#fff";
       result.innerHTML = `<span style="color:${gc};">Grupo ${winner}</span>`;
-      // Actions
       const btnAlumno = document.createElement("button");
       btnAlumno.className = "btn btn-primary";
       btnAlumno.style.cssText = "font-size:15px;padding:10px 28px;";
@@ -2785,11 +2792,12 @@ function _sorteoSpinGroups() {
 function _sorteoShowStudents(gNum) {
   const ov = document.getElementById("_sorteo_modal");
   if (!ov) return;
-  const gc = GROUP_COLORS[gNum] || "#58a6ff";
+  const gc       = GROUP_COLORS[gNum] || "#58a6ff";
   const students = _sorteoGetGroupStudents(gNum);
 
   ov.innerHTML = `
-    <div style="font-size:12px;font-weight:800;color:${gc}88;letter-spacing:.12em;text-transform:uppercase;">Grupo ${gNum} — sortear alumno</div>
+    <div style="font-size:12px;font-weight:800;color:${gc};letter-spacing:.12em;text-transform:uppercase;opacity:.7;">Grupo ${gNum} — sortear alumno</div>
+    <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:-16px;">Toca una ficha para marcar ausente antes de sortear</div>
     <div id="_sorteo_studs" style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:780px;width:90%;"></div>
     <div id="_sorteo_result2" style="font-size:32px;font-weight:900;color:#fff;min-height:48px;text-align:center;"></div>
     <div id="_sorteo_actions2" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;"></div>
@@ -2799,7 +2807,7 @@ function _sorteoShowStudents(gNum) {
     </div>
   `;
 
-  _sorteoRenderStudents(students, null, gc);
+  _sorteoRenderStudents(students, null, gc, true);
 
   const actions = document.getElementById("_sorteo_actions2");
   const btnSortear = document.createElement("button");
@@ -2810,64 +2818,90 @@ function _sorteoShowStudents(gNum) {
   actions.appendChild(btnSortear);
 }
 
-function _sorteoRenderStudents(students, activeId, gc) {
+// allowToggle=true → modo pre-sorteo, clic en ficha marca/desmarca ausente
+function _sorteoRenderStudents(students, activeId, gc, allowToggle=false) {
   const container = document.getElementById("_sorteo_studs");
   if (!container) return;
   container.innerHTML = "";
   students.forEach(s => {
-    const isActive = activeId === s.id;
+    const isActive  = activeId === s.id;
+    const isAbsent  = _sorteoAbsent.has(s.id);
+    const isLast    = Object.values(_sorteoLastStudent).includes(s.id) && !isActive;
     const card = document.createElement("div");
     card.id = `_ss_${s.id}`;
     card.style.cssText = `
-      border:2px solid ${gc};border-radius:14px;padding:clamp(12px,1.8vh,22px) clamp(14px,2vw,28px);text-align:center;
-      background:${isActive ? gc+"55" : "rgba(255,255,255,.04)"};
-      color:${isActive ? "#fff" : "rgba(255,255,255,.45)"};
+      border:2px solid ${isAbsent ? "rgba(248,81,73,.4)" : isActive ? gc : isCoolStudent(s.id) ? "rgba(255,255,255,.15)" : gc+"88"};
+      border-radius:14px;padding:clamp(12px,1.8vh,22px) clamp(14px,2vw,28px);text-align:center;
+      background:${isAbsent ? "rgba(248,81,73,.08)" : isActive ? gc+"55" : "rgba(255,255,255,.04)"};
+      color:${isAbsent ? "rgba(255,100,80,.6)" : isActive ? "#fff" : "rgba(255,255,255,.5)"};
       transition:background .08s,transform .1s,box-shadow .1s;
       transform:${isActive ? "scale(1.12)" : "scale(1)"};
       box-shadow:${isActive ? "0 0 30px "+gc+"99,0 0 8px "+gc+"44" : "none"};
       min-width:clamp(90px,10vw,130px);
+      cursor:${allowToggle ? "pointer" : "default"};
+      opacity:${isAbsent ? ".5" : "1"};
     `;
     const shortName = (s.name||"?").split(" ").slice(0,2).join(" ");
     card.innerHTML = `
-      <div style="font-size:clamp(18px,2.5vw,32px);font-weight:900;color:${isActive?"#fff":gc};line-height:1;">${s.listNumber??s.id}</div>
-      <div style="font-size:clamp(11px,1.1vw,15px);margin-top:5px;line-height:1.3;">${shortName}</div>
+      <div style="font-size:clamp(18px,2.5vw,32px);font-weight:900;color:${isAbsent?"rgba(255,100,80,.5)":isActive?"#fff":gc};line-height:1;${isAbsent?"text-decoration:line-through;":""}">${s.listNumber??s.id}</div>
+      <div style="font-size:clamp(11px,1.1vw,15px);margin-top:5px;line-height:1.3;${isAbsent?"text-decoration:line-through;":""}">${shortName}</div>
+      ${isAbsent ? `<div style="font-size:9px;margin-top:4px;color:rgba(255,100,80,.7);letter-spacing:.05em;">ausente</div>` : ""}
+      ${isLast && !isAbsent ? `<div style="font-size:9px;margin-top:4px;color:rgba(255,255,255,.3);letter-spacing:.05em;">última vez</div>` : ""}
     `;
+    if (allowToggle) {
+      card.onclick = () => {
+        if (_sorteoAbsent.has(s.id)) _sorteoAbsent.delete(s.id);
+        else _sorteoAbsent.add(s.id);
+        _sorteoRenderStudents(students, null, gc, true);
+      };
+    }
     container.appendChild(card);
   });
 }
 
+function isCoolStudent(id) {
+  return Object.values(_sorteoLastStudent).includes(id);
+}
+
 function _sorteoSpinStudents(gNum, students, gc) {
-  if (!students.length) { toast("No hay alumnos en este grupo","red"); return; }
-  const result = document.getElementById("_sorteo_result2");
+  // Pool: excluir ausentes y el último sorteado en este grupo (no repetir consecutivo)
+  const lastId = _sorteoLastStudent[gNum];
+  let pool = students.filter(s => !_sorteoAbsent.has(s.id) && s.id !== lastId);
+  // Si solo queda 1 o menos por la regla de consecutivo, ignorar la restricción
+  if (!pool.length) pool = students.filter(s => !_sorteoAbsent.has(s.id));
+  if (!pool.length) { toast("Todos los alumnos del grupo están ausentes","red"); return; }
+
+  const result  = document.getElementById("_sorteo_result2");
   const actions = document.getElementById("_sorteo_actions2");
   actions.innerHTML = "";
   result.textContent = "";
 
-  const total = 22;
-  let step = 0;
-  let current = -1;
-  const winner = students[Math.floor(Math.random() * students.length)];
+  const total  = 22;
+  let step     = 0;
+  let current  = -1;
+  const winner = pool[Math.floor(Math.random() * pool.length)];
 
   function tick() {
+    // Animate through all present students for visual effect
+    const animPool = students.filter(s => !_sorteoAbsent.has(s.id));
     let next = current;
-    while (next === current && students.length > 1) next = students[Math.floor(Math.random() * students.length)].id;
+    while (next === current && animPool.length > 1) next = animPool[Math.floor(Math.random() * animPool.length)].id;
     if (step >= total - 1) next = winner.id;
     current = next;
-    _sorteoRenderStudents(students, current, gc);
-
+    _sorteoRenderStudents(students, current, gc, false);
     step++;
     if (step < total) {
-      const progress = step / total;
-      const delay = 60 + 550 * Math.pow(progress, 2.2);
+      const delay = 60 + 550 * Math.pow(step / total, 2.2);
       setTimeout(tick, delay);
     } else {
-      _sorteoRenderStudents(students, winner.id, gc);
+      _sorteoLastStudent[gNum] = winner.id;
+      _sorteoRenderStudents(students, winner.id, gc, false);
       result.innerHTML = `<span style="color:${gc};">★ ${winner.name||"Alumno"}</span>`;
       const btnRepeat = document.createElement("button");
       btnRepeat.className = "btn btn-ghost";
       btnRepeat.style.cssText = "font-size:14px;padding:10px 20px;";
       btnRepeat.textContent = "🔄 Otro alumno";
-      btnRepeat.onclick = () => { result.textContent=""; _sorteoRenderStudents(students,null,gc); _sorteoSpinStudents(gNum,students,gc); };
+      btnRepeat.onclick = () => { result.textContent=""; _sorteoRenderStudents(students,null,gc,true); _sorteoSpinStudents(gNum,students,gc); };
       const btnGrupo = document.createElement("button");
       btnGrupo.className = "btn btn-ghost";
       btnGrupo.style.cssText = "font-size:14px;padding:10px 20px;";
