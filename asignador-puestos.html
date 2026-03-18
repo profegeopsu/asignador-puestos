@@ -2796,7 +2796,7 @@ function executePasteImport() {
       STATE.students.push(mkStudent({
         name: r.nombre,
         promedio: r.promedio,
-        listNumber: r.num ?? null
+        listNumber: r.num ?? (STATE.students.length + 1)
       }));
       added++;
     }
