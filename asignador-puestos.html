@@ -2668,6 +2668,64 @@ function setHeatVar(v) {
 let _sorteoRecentGroups = [];
 let _sorteoLastStudent  = {};
 let _sorteoAbsent       = new Set();
+let _sorteoAudioCtx     = null;
+
+function _sorteoAudio() {
+  if (!_sorteoAudioCtx) {
+    try { _sorteoAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; }
+  }
+  return _sorteoAudioCtx;
+}
+
+// Tick durante la animación — pitch desciende a medida que frena (progress 0→1)
+function _sorteoTick(progress) {
+  const ctx = _sorteoAudio(); if (!ctx) return;
+  const t   = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+  osc.connect(env); env.connect(ctx.destination);
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(900 - progress * 520, t); // 900Hz rápido → 380Hz lento
+  env.gain.setValueAtTime(0.18, t);
+  env.gain.exponentialRampToValueAtTime(0.001, t + 0.04 + progress * 0.06);
+  osc.start(t); osc.stop(t + 0.1);
+}
+
+// Fanfarria al seleccionar ganador (grupo)
+function _sorteoFanfarreGroup(gc) {
+  const ctx = _sorteoAudio(); if (!ctx) return;
+  const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+  notes.forEach((freq, i) => {
+    const t   = ctx.currentTime + i * 0.11;
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.connect(env); env.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.22, t + 0.018);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+    osc.start(t); osc.stop(t + 0.35);
+  });
+}
+
+// Chime al seleccionar alumno — tono más suave y breve
+function _sorteoChimeStudent() {
+  const ctx = _sorteoAudio(); if (!ctx) return;
+  const notes = [659.25, 880, 1046.5]; // E5 A5 C6
+  notes.forEach((freq, i) => {
+    const t   = ctx.currentTime + i * 0.09;
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.connect(env); env.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.18, t + 0.015);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+    osc.start(t); osc.stop(t + 0.3);
+  });
+}
 
 // Botones de navegación interna del sorteo (reutilizables)
 const _SORTEO_BTN = `background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;font-weight:700;padding:6px 14px;cursor:pointer;font-family:var(--font);`;
@@ -2762,13 +2820,16 @@ function _sorteoSpinGroups() {
     if (step >= total - 1) next = winner;
     current = next;
     _sorteoRenderGroups(current);
+    const progress = step / total;
+    _sorteoTick(progress);
     step++;
     if (step < total) {
-      setTimeout(tick, 60 + 600 * Math.pow(step / total, 2.2));
+      setTimeout(tick, 60 + 600 * Math.pow(progress, 2.2));
     } else {
       _sorteoRecentGroups.push(winner);
       if (_sorteoRecentGroups.length > 4) _sorteoRecentGroups.shift();
       _sorteoRenderGroups(winner);
+      setTimeout(() => _sorteoFanfarreGroup(GROUP_COLORS[winner]), 80);
       const gc = GROUP_COLORS[winner] || "var(--accent)";
       result.innerHTML = `<span style="color:${gc};">Grupo ${winner}</span>`;
       const btnAlumno = document.createElement("button");
@@ -2829,19 +2890,19 @@ function _sorteoRenderStudents(students, activeId, gc, allowToggle=false) {
     card.id = `_ss_${s.id}`;
     card.style.cssText = `
       border:2px solid ${isAbsent ? "var(--red)" : isActive ? gc : gc+"66"};
-      border-radius:14px;padding:clamp(24px,3.6vh,44px) clamp(28px,4vw,56px);text-align:center;
+      border-radius:14px;padding:clamp(18px,2.7vh,33px) clamp(21px,3vw,42px);text-align:center;
       background:${isAbsent ? "var(--surface)" : isActive ? gc+"44" : "var(--surface2)"};
       transition:background .08s,transform .1s,box-shadow .1s;
       transform:${isActive ? "scale(1.12)" : "scale(1)"};
       box-shadow:${isActive ? "0 0 30px "+gc+"99,0 0 8px "+gc+"44" : "none"};
-      min-width:clamp(180px,20vw,260px);
+      min-width:clamp(135px,15vw,195px);
       cursor:${allowToggle ? "pointer" : "default"};
       opacity:${isAbsent ? ".45" : "1"};
     `;
     const shortName = (s.name||"?").split(" ").slice(0,2).join(" ");
     card.innerHTML = `
-      <div style="font-size:clamp(36px,5vw,64px);font-weight:900;color:${isAbsent?"var(--red)":isActive?"var(--text)":gc};line-height:1;${isAbsent?"text-decoration:line-through;":""}">${s.listNumber??s.id}</div>
-      <div style="font-size:clamp(22px,2.2vw,30px);margin-top:8px;color:${isAbsent?"var(--red)":"var(--muted)"};line-height:1.3;${isAbsent?"text-decoration:line-through;":""}">${shortName}</div>
+      <div style="font-size:clamp(27px,3.8vw,48px);font-weight:900;color:${isAbsent?"var(--red)":isActive?"var(--text)":gc};line-height:1;${isAbsent?"text-decoration:line-through;":""}">${s.listNumber??s.id}</div>
+      <div style="font-size:clamp(16px,1.6vw,22px);margin-top:8px;color:${isAbsent?"var(--red)":"var(--muted)"};line-height:1.3;${isAbsent?"text-decoration:line-through;":""}">${shortName}</div>
       ${isAbsent ? `<div style="font-size:9px;margin-top:4px;color:var(--red);letter-spacing:.05em;">ausente</div>` : ""}
       ${isLast && !isAbsent ? `<div style="font-size:9px;margin-top:4px;color:var(--dim);letter-spacing:.05em;">última vez</div>` : ""}
     `;
@@ -2877,18 +2938,23 @@ function _sorteoSpinStudents(gNum, students, gc) {
   const winner = pool[Math.floor(Math.random() * pool.length)];
 
   function tick() {
-    const animPool = students.filter(s => !_sorteoAbsent.has(s.id));
+    const lastId = _sorteoLastStudent[gNum];
+    const animPool = students.filter(s => !_sorteoAbsent.has(s.id) && s.id !== lastId);
+    const animSrc  = animPool.length > 1 ? animPool : students.filter(s => !_sorteoAbsent.has(s.id));
     let next = current;
-    while (next === current && animPool.length > 1) next = animPool[Math.floor(Math.random() * animPool.length)].id;
+    while (next === current && animSrc.length > 1) next = animSrc[Math.floor(Math.random() * animSrc.length)].id;
     if (step >= total - 1) next = winner.id;
     current = next;
     _sorteoRenderStudents(students, current, gc, false);
+    const progress = step / total;
+    _sorteoTick(progress);
     step++;
     if (step < total) {
-      setTimeout(tick, 60 + 550 * Math.pow(step / total, 2.2));
+      setTimeout(tick, 60 + 550 * Math.pow(progress, 2.2));
     } else {
       _sorteoLastStudent[gNum] = winner.id;
       _sorteoRenderStudents(students, winner.id, gc, false);
+      setTimeout(_sorteoChimeStudent, 80);
       result.innerHTML = `<span style="color:${gc};">★ ${winner.name||"Alumno"}</span>`;
       const btnRepeat = document.createElement("button");
       btnRepeat.className = "btn btn-ghost";
