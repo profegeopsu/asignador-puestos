@@ -1438,12 +1438,26 @@ function algorithmicAssign() {
     return p;
   };
 
-  // ── BEST SEAT FOR STUDENT considering zones + grupoSep ──────
+  // ── BEST SEAT FOR STUDENT considering avoidWith + zones + grupoSep ──────
   function bestSeat(s, candidateSeats) {
     // Filter already occupied
     const free = candidateSeats.filter(([c,r])=>!isOccupied(c,r));
     if (!free.length) return null;
-    if (!s.grupoSep) return free[0];
+
+    // Collect positions of avoid students already placed in g (bidirectional)
+    const avoidIds = new Set([
+      ...(s.avoidWith||[]),
+      ...STATE.students.filter(x=>(x.avoidWith||[]).includes(s.id)).map(x=>x.id)
+    ]);
+    const avoidPos=[];
+    for (let c=0;c<NUM_COLS;c++) for (let r=0;r<COL_SIZES[c];r++)
+      if (avoidIds.has(g[c][r])) avoidPos.push([c,r]);
+    const isAdjacentToAvoid = ([c,r]) =>
+      avoidPos.some(([ac,ar])=>Math.abs(c-ac)<=1&&Math.abs(r-ar)<=1);
+    const safeFree = avoidPos.length>0 ? free.filter(cell=>!isAdjacentToAvoid(cell)) : free;
+    const candidates = safeFree.length>0 ? safeFree : free; // fallback if no safe seat
+
+    if (!s.grupoSep) return candidates[0];
     // Find already-placed members of same group
     const groupPositions=[];
     STATE.students.forEach(x=>{
@@ -1452,10 +1466,10 @@ function algorithmicAssign() {
           if(g[c][r]===x.id) groupPositions.push([c,r]);
       }
     });
-    if(!groupPositions.length) return free[0];
+    if(!groupPositions.length) return candidates[0];
     // Pick seat maximizing minimum distance from group members
-    let best=free[0], bestDist=0;
-    free.forEach(([c,r])=>{
+    let best=candidates[0], bestDist=0;
+    candidates.forEach(([c,r])=>{
       const minDist=Math.min(...groupPositions.map(([gc,gr])=>distBetween(c,r,gc,gr)));
       if(minDist>bestDist){ bestDist=minDist; best=[c,r]; }
     });
@@ -1509,6 +1523,41 @@ function algorithmicAssign() {
 // ═══════════════════════════════════════════════════════════════════
 //  AI GENERATE
 // ═══════════════════════════════════════════════════════════════════
+// Detect and fix avoidWith violations in a grid by relocating one student of each conflicting pair
+function fixAvoidWithViolations(g) {
+  const isOccupied = (c,r) => g[c]?.[r] !== null && g[c]?.[r] !== undefined;
+  const getAvoidPos = (s) => {
+    const avoidIds = new Set([...(s.avoidWith||[]), ...STATE.students.filter(x=>(x.avoidWith||[]).includes(s.id)).map(x=>x.id)]);
+    const pos=[];
+    for(let c=0;c<NUM_COLS;c++) for(let r=0;r<COL_SIZES[c];r++) if(avoidIds.has(g[c][r])) pos.push([c,r]);
+    return pos;
+  };
+  const isSafe = (s,[tc,tr]) => {
+    const pos = getAvoidPos(s);
+    return !pos.some(([ac,ar])=>Math.abs(tc-ac)<=1&&Math.abs(tr-ar)<=1);
+  };
+  // Iterate until no violations remain (max 10 passes to avoid infinite loop)
+  for(let pass=0; pass<10; pass++) {
+    let fixed=0;
+    for(let c=0;c<NUM_COLS;c++) for(let r=0;r<COL_SIZES[c];r++) {
+      const id=g[c][r]; if(!id) continue;
+      const s=getById(id);
+      if(!s||(s.avoidWith||[]).length===0) continue;
+      if(isSafe(s,[c,r])) continue;
+      // Violation: find a safe empty cell for this student
+      const empty=[];
+      for(let ec=0;ec<NUM_COLS;ec++) for(let er=0;er<COL_SIZES[ec];er++) if(!isOccupied(ec,er)) empty.push([ec,er]);
+      const safeCell = empty.find(cell=>isSafe(s,cell));
+      if(safeCell) {
+        g[safeCell[0]][safeCell[1]]=id;
+        g[c][r]=null;
+        fixed++;
+      }
+    }
+    if(fixed===0) break;
+  }
+}
+
 async function generateWithAI() {
   const named = STATE.students.filter(s=>s.name.trim());
   if (named.length===0) { toast("Agrega al menos un alumno con nombre","red"); return; }
@@ -1523,7 +1572,7 @@ async function generateWithAI() {
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         model:"claude-sonnet-4-20250514",
-        max_tokens:1000,
+        max_tokens:2500,
         system:"Eres un experto en distribución pedagógica de aulas. Responde SOLO con JSON válido, sin texto adicional ni backticks markdown.",
         messages:[{role:"user",content:prompt}]
       })
@@ -1551,15 +1600,26 @@ async function generateWithAI() {
         let found=false;
         STATE.grid.forEach((colArr,c)=>colArr.forEach((id,r)=>{ if(id===lockedId&&!found){ newGrid[c][r]=lockedId; placedIds.add(lockedId); found=true; } }));
       });
-      // Overflow pass: any student not yet placed goes into the first empty cell
+      // Overflow pass: any student not yet placed — use avoidWith-aware placement
       const allIds = STATE.students.map(s=>s.id);
       const unplaced = allIds.filter(id=>!placedIds.has(id));
       if (unplaced.length>0) {
-        const emptyCells=[];
-        for(let c=0;c<NUM_COLS;c++) for(let r=0;r<COL_SIZES[c];r++) if(newGrid[c][r]===null) emptyCells.push([c,r]);
-        unplaced.forEach((id,i)=>{ if(i<emptyCells.length){ const[c,r]=emptyCells[i]; newGrid[c][r]=id; } });
-        console.warn(`IA overflow: ${unplaced.length} alumnos reubicados en celdas vacías`);
+        unplaced.forEach(id=>{
+          const s = getById(id);
+          const avoidIds = new Set([...(s?.avoidWith||[]), ...STATE.students.filter(x=>(x.avoidWith||[]).includes(id)).map(x=>x.id)]);
+          const avoidPos=[];
+          for(let c=0;c<NUM_COLS;c++) for(let r=0;r<COL_SIZES[c];r++) if(avoidIds.has(newGrid[c][r])) avoidPos.push([c,r]);
+          const isSafe=([c,r])=>!avoidPos.some(([ac,ar])=>Math.abs(c-ac)<=1&&Math.abs(r-ar)<=1);
+          const empty=[];
+          for(let c=0;c<NUM_COLS;c++) for(let r=0;r<COL_SIZES[c];r++) if(newGrid[c][r]===null) empty.push([c,r]);
+          const safe = avoidPos.length>0 ? empty.filter(isSafe) : empty;
+          const cell = (safe.length>0 ? safe : empty)[0];
+          if(cell) newGrid[cell[0]][cell[1]]=id;
+        });
+        console.warn(`IA overflow: ${unplaced.length} alumnos reubicados con restricciones`);
       }
+      // Post-check: fix any remaining avoidWith violations by relocating one of the pair
+      fixAvoidWithViolations(newGrid);
       STATE.grid=newGrid;
       saveState();
       showScreen("map");
@@ -1570,7 +1630,9 @@ async function generateWithAI() {
   } catch(e) {
     console.warn("AI failed, using algorithm",e);
     pushHistory();
-    STATE.grid = algorithmicAssign();
+    const fallbackGrid = algorithmicAssign();
+    fixAvoidWithViolations(fallbackGrid);
+    STATE.grid = fallbackGrid;
     saveState();
     showScreen("map");
     toast("✅ Distribución generada correctamente","green");
@@ -2667,7 +2729,7 @@ function showPasteImport() {
       <!-- Preview -->
       <div id="_paste_preview" style="display:none;">
         <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;" id="_paste_preview_title"></div>
-        <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+        <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
           <table style="width:100%;border-collapse:collapse;font-size:11px;" id="_paste_preview_table"></table>
         </div>
         <div id="_paste_preview_warn" style="font-size:10px;color:var(--yellow);margin-top:6px;"></div>
@@ -2807,6 +2869,13 @@ function executePasteImport() {
   document.getElementById("_paste_modal")?.remove();
   const updMsg = updated ? " · " + updated + " actualizado" + (updated!==1?"s":"") : "";
   toast("✅ " + added + " agregado" + (added!==1?"s":"") + updMsg, "green");
+
+  // Aviso si se agregaron alumnos sin datos pedagógicos completos
+  if (added > 0) {
+    setTimeout(() => {
+      toast("⚠️ Completa género, rendimiento y conducta en la tabla para mejorar la asignación", "yellow", 6000);
+    }, 1200);
+  }
 }
 
 function showCursos() { showScreen("cursos"); }
@@ -3160,10 +3229,26 @@ function autoAssignOne(id) {
   for (let c=0;c<NUM_COLS;c++) for (let r=0;r<COL_SIZES[c];r++)
     if (STATE.grid[c][r]===null) emptyCells.push([c,r]);
   if (!emptyCells.length) { toast("No hay puestos vacíos","red"); return; }
+
+  // Collect positions of avoid students already placed (bidirectional)
+  const avoidIds = new Set([
+    ...(s.avoidWith||[]),
+    ...STATE.students.filter(x=>(x.avoidWith||[]).includes(s.id)).map(x=>x.id)
+  ]);
+  const avoidPos=[];
+  if (avoidIds.size>0) {
+    for (let c=0;c<NUM_COLS;c++) for (let r=0;r<COL_SIZES[c];r++)
+      if (avoidIds.has(STATE.grid[c][r])) avoidPos.push([c,r]);
+  }
+  const isAdjacentToAvoid = ([c,r]) =>
+    avoidPos.some(([ac,ar])=>Math.abs(c-ac)<=1&&Math.abs(r-ar)<=1);
+  const safeCells = avoidPos.length>0 ? emptyCells.filter(cell=>!isAdjacentToAvoid(cell)) : emptyCells;
+  const pool = safeCells.length>0 ? safeCells : emptyCells; // fallback if no safe seat exists
+
   // Zone preference
-  let preferred = emptyCells;
-  const frontZone = emptyCells.filter(([c,r])=>COL_SIZES[c]-1-r<=1);
-  const backZone  = emptyCells.filter(([c,r])=>COL_SIZES[c]-1-r>=4);
+  let preferred = pool;
+  const frontZone = pool.filter(([c,r])=>COL_SIZES[c]-1-r<=1);
+  const backZone  = pool.filter(([c,r])=>COL_SIZES[c]-1-r>=4);
   if ((s.diagnosis!=="—"||s.performance==="Bajo gral."||s.performance==="Bajo mat.")&&frontZone.length)
     preferred=frontZone;
   else if ((s.isTutor||s.performance==="Alto")&&backZone.length)
@@ -3614,12 +3699,12 @@ function fitPrintText() {
 //  UTILS
 // ═══════════════════════════════════════════════════════════════════
 function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-function toast(msg, type="accent") {
+function toast(msg, type="accent", duration=3000) {
   const t=document.getElementById("toast");
   const colors={accent:"#1f6feb",green:"#238636",yellow:"#9e6a03",red:"#da3633"};
   t.style.background=colors[type]||colors.accent;
   t.textContent=msg; t.classList.add("show");
-  clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove("show"),3000);
+  clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove("show"),duration);
 }
 function setBtnLoading(id, loading, text) {
   const btn=document.getElementById(id); if(!btn)return;
