@@ -2165,7 +2165,7 @@ function renderGrid() {
           border-radius:14px;
           padding:6px 5px 5px;
           position:relative;
-          display:flex;flex-direction:row;gap:5px;align-items:flex-start;
+          display:flex;flex-direction:row;gap:5px;align-items:center;justify-content:center;
         `;
         // Group label
         const glbl=document.createElement("div");
@@ -3929,15 +3929,16 @@ function loadTheme() {
 }
 
 // ── ZOOM ──────────────────────────────────────────────────────────
-let _zoomLevel = 0; // steps: each step = 10%
+let _zoomLevel = 0; // steps for manual +/- buttons
+let _zoomExact = null; // exact scale from autoFitZoom (overrides steps when set)
 const ZOOM_STEPS = [-40,-30,-20,-10,0,10,20,30,40,50,60,70,80,90,100];
 function zoomMap(dir) {
+  _zoomExact = null; // back to manual step mode
   _zoomLevel = Math.max(0, Math.min(ZOOM_STEPS.length-1, _zoomLevel + dir));
   applyZoom();
 }
 function applyZoom() {
-  const pct  = 100 + ZOOM_STEPS[_zoomLevel];
-  const scale = pct / 100;
+  const scale = _zoomExact !== null ? _zoomExact : (100 + ZOOM_STEPS[_zoomLevel]) / 100;
   const inner = document.getElementById("zoom-inner");
   if (inner) {
     inner.style.transform = `scale(${scale})`;
@@ -3946,31 +3947,34 @@ function applyZoom() {
     if (wrap) wrap.style.height = (inner.scrollHeight * scale) + "px";
   }
   const lbl = document.getElementById("zoom-label");
-  if (lbl) lbl.textContent = pct + "%";
+  if (lbl) lbl.textContent = Math.round(scale * 100) + "%";
 }
 
 function autoFitZoom() {
-  // Calculate what zoom level makes the grid fill the available card width
   const inner = document.getElementById("zoom-inner");
   const card  = document.getElementById("map-grid-area") || inner?.closest(".card");
   if (!inner || !card) return;
-  // Reset to 100% to measure natural width
   inner.style.transform = "scale(1)";
   const naturalW = inner.scrollWidth;
-  const available = card.clientWidth - 32; // 16px padding each side
+  const available = card.clientWidth - 32;
   if (naturalW <= 0 || available <= 0) return;
-  const ratio = available / naturalW;
-  // Find closest zoom step
-  const targetPct = Math.round(ratio * 100);
-  const targetOffset = targetPct - 100;
-  // Pick the step closest to targetOffset without exceeding available width
-  let best = 0;
-  for (let i = 0; i < ZOOM_STEPS.length; i++) {
-    if (100 + ZOOM_STEPS[i] <= targetPct + 2) best = i;
-  }
-  _zoomLevel = best;
+  _zoomExact = Math.min(available / naturalW, 1.0); // fit to width, never upscale past 100%
   applyZoom();
 }
+
+// Auto-fit on window resize when map is visible
+(function() {
+  let _rafPending = false;
+  window.addEventListener("resize", () => {
+    if (_rafPending) return;
+    _rafPending = true;
+    requestAnimationFrame(() => {
+      _rafPending = false;
+      const inner = document.getElementById("zoom-inner");
+      if (inner && inner.offsetParent !== null) autoFitZoom();
+    });
+  });
+})();
 
 
 // ═══════════════════════════════════════════════════════════════════
